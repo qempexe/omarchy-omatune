@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.qempexe.omatune",
+  "name": "Omatune",
+  "version": "1.0.0",
+  "author": "qempexe",
+  "license": "MIT",
+  "description": "Song recognition in your Omarchy bar: click to listen, then see the song, artist and cover in a notification and in the history.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omatune",
+    "description": "Song recognition with theme, notification and history settings",
+    "category": "Media",
+    "aliases": [
+      "songrec",
+      "shazam",
+      "song",
+      "recognize",
+      "music",
+      "identify"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "theme": "follow",
+      "customBackground": "#141414",
+      "customText": "#e0e0e0",
+      "customAccent": "#d4a35a",
+      "barIcon": "♪",
+      "barShowResult": true,
+      "source": "system",
+      "duration": 5,
+      "notify": true,
+      "notifyCover": true,
+      "notifyTimeout": 8,
+      "historySize": 20
+    },
+    "schema": [
+      {
+        "key": "theme",
+        "type": "enum",
+        "label": "Theme",
+        "defaultValue": "follow",
+        "description": "Follow Omarchy changes the moment you switch Omarchy's theme. Custom lets you choose every colour. Monochrome is plain grey.",
+        "options": [
+          "follow",
+          "custom",
+          "mono"
+        ]
+      },
+      {
+        "key": "customBackground",
+        "type": "string",
+        "label": "Custom background",
+        "defaultValue": "#141414",
+        "description": "Background colour used with the Custom theme."
+      },
+      {
+        "key": "customText",
+        "type": "string",
+        "label": "Custom text",
+        "defaultValue": "#e0e0e0",
+        "description": "Text colour used with the Custom theme."
+      },
+      {
+        "key": "customAccent",
+        "type": "string",
+        "label": "Custom accent",
+        "defaultValue": "#d4a35a",
+        "description": "Accent colour used with the Custom theme."
+      },
+      {
+        "key": "barIcon",
+        "type": "string",
+        "label": "Bar icon",
+        "defaultValue": "♪",
+        "description": "Up to 8 characters shown on the bar."
+      },
+      {
+        "key": "barShowResult",
+        "type": "boolean",
+        "label": "Show last song on the bar",
+        "defaultValue": true,
+        "description": "Show the last song found next to the icon."
+      },
+      {
+        "key": "source",
+        "type": "enum",
+        "label": "Listen to",
+        "defaultValue": "system",
+        "description": "This computer records what is playing. Microphone listens to the room.",
+        "options": [
+          "system",
+          "microphone"
+        ]
+      },
+      {
+        "key": "duration",
+        "type": "integer",
+        "label": "Listen length",
+        "defaultValue": 5,
+        "description": "How long to record before identifying. 4 to 6 seconds is usually enough; longer is slower but more reliable in noisy rooms.",
+        "min": 4,
+        "max": 20,
+        "step": 1
+      },
+      {
+        "key": "notify",
+        "type": "boolean",
+        "label": "Notify when a song is found",
+        "defaultValue": true,
+        "description": "Send a desktop notification with the song title and artist."
+      },
+      {
+        "key": "notifyCover",
+        "type": "boolean",
+        "label": "Cover photo in notification",
+        "defaultValue": true,
+        "description": "Include the album cover when one is available."
+      },
+      {
+        "key": "notifyTimeout",
+        "type": "integer",
+        "label": "Notification time",
+        "defaultValue": 8,
+        "description": "How long the notification stays on screen.",
+        "min": 2,
+        "max": 30,
+        "step": 1
+      },
+      {
+        "key": "historySize",
+        "type": "integer",
+        "label": "Songs to keep",
+        "defaultValue": 20,
+        "description": "How many songs the History tab remembers.",
+        "min": 5,
+        "max": 100,
+        "step": 5
+      }
+    ]
+  }
+}
