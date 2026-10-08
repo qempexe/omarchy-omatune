@@ -67,7 +67,7 @@ BarWidget {
     readonly property string captureScript: [
         'f="$1"; mode="$2"; secs="$3"',
         'mkdir -p "$(dirname "$f")"; rm -f "$f"',
-        'command -v songrec >/dev/null 2>&1 || { echo "@@ERR songrec is not installed, install the songrec package"; exit 0; }',
+        'command -v songrec >/dev/null 2>&1 || { echo "@@ERR songrec is not installed. Install it, then press Recheck."; exit 0; }',
         'if command -v pw-record >/dev/null 2>&1; then',
         '  if [ "$mode" = system ]; then timeout -s INT "$secs" pw-record -P \'{ stream.capture.sink=true }\' "$f" >/dev/null 2>&1',
         '  else timeout -s INT "$secs" pw-record "$f" >/dev/null 2>&1; fi',
@@ -78,7 +78,26 @@ BarWidget {
         'if [ -s "$f" ]; then echo "@@OK"; else echo "@@ERR no audio was recorded"; fi'
     ].join("\n")
 
+    // SongRec is a separate package the user installs themselves. Omatune only
+    // checks whether `songrec` is on the PATH; it never invokes a package
+    // manager and never installs, upgrades or removes anything.
+    property bool recognizerMissing: false
+
+    function recheckRecognizer() { if (!checkProc.running) checkProc.running = true }
+    Process {
+        id: checkProc
+        command: ["sh", "-c", 'command -v songrec >/dev/null 2>&1 && echo "@@OK" || echo "@@MISSING"']
+        stdout: StdioCollector {
+            id: checkOut
+            onStreamFinished: root.recognizerMissing = String(checkOut.text).indexOf("@@MISSING") >= 0
+        }
+    }
+
     function listen() {
+        if (recognizerMissing) {
+            fail("SongRec is not installed yet. Install it, then press Recheck.")
+            return
+        }
         if (phase === "listening" || phase === "identifying" || captureProc.running || recogProc.running) return
         errorText = ""
         phase = "listening"
@@ -327,7 +346,7 @@ BarWidget {
         onTriggered: root.refreshTheme()
     }
     onThemeChoiceChanged: if (themeChoice === "follow") refreshTheme()
-    Component.onCompleted: { mkDirs.running = true; refreshTheme() }
+    Component.onCompleted: { mkDirs.running = true; refreshTheme(); recheckRecognizer() }
 
     // ── panel host (same pattern as Omatravel) ──
     function injectPanel() {

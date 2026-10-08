@@ -17,9 +17,9 @@ Song recognition in your [Omarchy](https://omarchy.org) bar. Click the icon, let
 
 ## Requirements
 
-- [SongRec](https://github.com/marin-m/SongRec) with its command-line tool `songrec` on your `PATH`. On Arch it is in the official repositories as `songrec`.
+- [SongRec](https://github.com/marin-m/SongRec) with its command-line tool `songrec` on your `PATH`. Install the `songrec` package from your distribution's repositories before using Omatune. Omatune does not install it for you: if it is missing, the Listen tab shows a notice asking you to install it, with a **Recheck** button to press once it is on your `PATH`.
 - PipeWire (`pw-record`) or PulseAudio (`parecord`) for recording.
-- `curl` for the cover photo, `notify-send` (any notification daemon, Omarchy's included) for notifications, and `xdg-open` for opening links.
+- `curl` for the cover photo, `notify-send` (any notification daemon, Omarchy's included) for notifications, `xdg-open` for opening links, and `xdg-terminal-exec` for the one-time SongRec install. All come with a stock Omarchy.
 - Internet access while identifying: SongRec sends a fingerprint of the recording to Shazam's service.
 
 ## Install
@@ -27,6 +27,8 @@ Song recognition in your [Omarchy](https://omarchy.org) bar. Click the icon, let
 ```
 omarchy plugin add https://github.com/qempexe/omarchy-omatune.git --enable --yes
 ```
+
+That is the whole install. The first time you open the Listen tab, Omatune checks for SongRec and, if it is missing, offers to install it (see above). Nothing is installed without your confirmation in the terminal.
 
 Or by hand: copy this directory to `~/.config/omarchy/plugins/io.github.qempexe.omatune/` (the folder name must match the plugin id), then:
 
@@ -52,7 +54,9 @@ omarchy restart shell
 | Action                    | How                                                                |
 | ------------------------- | ------------------------------------------------------------------ |
 | Identify a song           | Open the panel and press **Listen**, or turn on **Continuous listening** |
-| Open Settings             | Click the bar icon                                                 |
+| Open the panel            | Left-click the bar icon (Listen tab)                               |
+| Open History              | Middle-click the bar icon                                          |
+| Open Settings             | Right-click the bar icon                                           |
 | Open a song's page        | **Open on Shazam** on the last result, or click it in **History**   |
 | Save a favourite          | **♡ Save** on the last result, or **♡** on a row in **History**     |
 | See favourites            | **History** tab → **♥ Favourites**                                  |
@@ -61,7 +65,7 @@ omarchy restart shell
 
 ## Settings
 
-Click the bar icon to open the panel on the **Settings** tab. Settings are grouped, every option is visible, and each change applies immediately.
+Right-click the bar icon to open the panel on the **Settings** tab. Settings are grouped, every option is visible, and each change applies immediately.
 
 **Look**
 - **Theme**: *Follow Omarchy* (live), *Custom* or *Monochrome*.
@@ -84,6 +88,7 @@ Settings are saved in `~/.local/state/omatune/settings.json` and also pushed to 
 ## How it works
 
 - **Recording**: `pw-record` (or `parecord`) captures a short WAV file in `~/.cache/omatune/`. *This computer* uses the monitor of the default output, so it hears what you play; *Microphone* uses the default input.
+- **Setup**: on start-up the widget runs `command -v songrec`. If it is missing, the Listen tab shows a notice asking you to install it; press **Recheck** once it is on your `PATH`. Omatune never invokes a package manager and never installs, upgrades or removes anything.
 - **Identifying**: `songrec audio-file-to-recognized-song` prints the Shazam response as JSON, which is parsed for the title, artist, album, cover and link. The recording is deleted straight after.
 - **Notification**: `notify-send` shows the title as the heading and the artist (and album) underneath. The cover is downloaded with `curl` into `~/.cache/omatune/covers/`.
 - **History**: `~/.local/state/omatune/history.json`.
@@ -134,6 +139,11 @@ Restart the shell after changing QML, since Quickshell does not always reload it
 ```
 omarchy restart shell
 ```
+
+## Changelog
+
+- **1.0.1**: first-use SongRec setup notice in the Listen tab; README click actions corrected; description reworded.
+- **1.0.0**: first release.
 
 ## Updating
 

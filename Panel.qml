@@ -225,6 +225,53 @@ Panel {
                 ColumnLayout {
                     spacing: Style.space(14)
 
+                    // first-run setup: SongRec is a separate package the user installs themselves.
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: !!root.widget && root.widget.recognizerMissing
+                        Layout.preferredHeight: visible ? setupCol.implicitHeight + Style.space(24) : 0
+                        radius: Style.cornerRadius
+                        color: root.selectedFill
+                        border.width: 1
+                        border.color: root.accent
+                        ColumnLayout {
+                            id: setupCol
+                            anchors.fill: parent
+                            anchors.margins: Style.space(12)
+                            spacing: Style.space(8)
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Omatune needs SongRec to recognise songs."
+                                color: root.fg
+                                font.family: root.fontFamily
+                                font.pixelSize: root.fsMain
+                                wrapMode: Text.Wrap
+                                textFormat: Text.PlainText
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Install the songrec package from your distribution's repositories, then press Recheck."
+                                color: root.dim
+                                font.family: root.fontFamily
+                                font.pixelSize: root.fsSub
+                                wrapMode: Text.Wrap
+                                textFormat: Text.PlainText
+                            }
+                            FlatButton {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Style.space(36)
+                                outlined: true
+                                selected: true
+                                text: "Recheck"
+                                foreground: root.fg
+                                accent: root.accent
+                                fontFamily: root.fontFamily
+                                pixelSize: root.fsMain
+                                onClicked: root.widget.recheckRecognizer()
+                            }
+                        }
+                    }
+
                     // continuous listening: identify songs one after another, no clicking
                     RowLayout {
                         Layout.fillWidth: true
