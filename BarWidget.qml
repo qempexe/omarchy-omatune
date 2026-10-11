@@ -348,13 +348,20 @@ BarWidget {
     onThemeChoiceChanged: if (themeChoice === "follow") refreshTheme()
     Component.onCompleted: { mkDirs.running = true; refreshTheme(); recheckRecognizer() }
 
-    // ── panel host (same pattern as Omatravel) ──
+    // ── popup host: Panel.qml is its own window, settings popup ──
     function injectPanel() {
         if (!panelLoader.item) return
         panelLoader.item.bar = root.bar
         panelLoader.item.anchorItem = button
         panelLoader.item.hostWidget = root
         panelLoader.item.widget = root
+        panelLoader.item.vertical = root.isVertical
+        if (fgProbe.item) fgProbe.item.bar = root.bar
+    }
+    readonly property bool isVertical: {
+        var b = root.bar
+        if (!b) return false
+        try { return b.vertical === true || b.isVertical === true } catch (e) { return false }
     }
     function togglePanel() { if (panelLoader.item) panelLoader.item.toggle() }
 
@@ -387,6 +394,17 @@ BarWidget {
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
     onBarChanged: injectPanel()
+
+    // Exposes the bar's own colours to the popup (see Foreground.qml).
+    Loader {
+        id: fgProbe
+        active: true
+        source: Qt.resolvedUrl("Foreground.qml")
+        visible: false
+        onLoaded: root.injectPanel()
+    }
+    Binding { target: panelLoader.item; property: "probeFg"; value: fgProbe.item ? fgProbe.item.barForeground : undefined; when: !!panelLoader.item && !!fgProbe.item }
+    Binding { target: panelLoader.item; property: "probeBg"; value: fgProbe.item ? fgProbe.item.barBackground : undefined; when: !!panelLoader.item && !!fgProbe.item }
 
     Loader {
         id: panelLoader

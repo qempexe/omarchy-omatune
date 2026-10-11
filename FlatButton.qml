@@ -20,14 +20,13 @@ Rectangle {
 
     implicitHeight: 30
     implicitWidth: row.implicitWidth + hPad * 2
-    radius: outlined ? height / 2 : 6
+    radius: 6
     opacity: enabled ? 1 : 0.4
-    color: selected ? Qt.rgba(accent.r, accent.g, accent.b, 0.16)
-         : area.containsMouse ? Qt.rgba(foreground.r, foreground.g, foreground.b, 0.08)
-         : "transparent"
-    border.width: (selected || outlined) ? 1 : 0
-    border.color: selected ? Qt.rgba(accent.r, accent.g, accent.b, 0.7)
-                           : Qt.rgba(foreground.r, foreground.g, foreground.b, area.containsMouse ? 0.45 : 0.28)
+    // New chips: a soft tint, and an accent outline when selected.
+    color: selected ? Qt.rgba(accent.r, accent.g, accent.b, 0.2)
+         : Qt.rgba(foreground.r, foreground.g, foreground.b, area.containsMouse ? 0.14 : (outlined ? 0.06 : 0))
+    border.width: selected ? 1 : 0
+    border.color: accent
 
     Row {
         id: row
@@ -46,10 +45,10 @@ Rectangle {
             id: label
             anchors.verticalCenter: parent.verticalCenter
             text: btn.text
-            color: btn.selected ? btn.accent : btn.foreground
+            color: btn.foreground
             font.family: btn.fontFamily
             font.pixelSize: btn.pixelSize
-            font.bold: btn.bold || btn.selected
+            font.weight: (btn.bold || btn.selected) ? Font.DemiBold : Font.Normal
             textFormat: Text.PlainText
         }
     }

@@ -9,12 +9,15 @@ import "Model.js" as Model
 import "Settings.js" as Settings
 
 // Popup with three tabs: Listen (the last song), History, Settings (built from Settings.js).
-Panel {
+PopupWindow {
     id: root
-    moduleName: "io.github.qempexe.omatune"
-    manageIpc: false
 
     // injected by BarWidget
+    property var bar: null
+    property var barObject: bar                // the shell's bar, a hint for which edge it sits on
+    property bool vertical: false              // bar is on the left / right edge
+    property var probeBg: undefined            // bar colours from the Foreground probe (when `bar` has none)
+    property var probeFg: undefined
     property var anchorItem: null
     property var hostWidget: null
     property var widget: null
@@ -23,9 +26,9 @@ Panel {
     // The shell's live bar colours. `bar.background` / `bar.foreground` are the documented ones;
     // `barBackground` / `barForeground` on the base Panel are a second source when they exist.
     readonly property var shellBgColor: (root.bar && root.bar.background !== undefined) ? root.bar.background
-                                       : root.barBackground
+                                       : root.probeBg
     readonly property var shellFgColor: (root.bar && root.bar.foreground !== undefined) ? root.bar.foreground
-                                       : root.barForeground
+                                       : root.probeFg
     Binding { target: root.widget; property: "shellBg"; value: root.shellBgColor; when: !!root.widget && root.shellBgColor !== undefined }
 
     property string currentTab: "listen"
@@ -52,6 +55,38 @@ Panel {
     readonly property color dim: Qt.rgba(fg.r, fg.g, fg.b, 0.56)
     readonly property color faint: Qt.rgba(fg.r, fg.g, fg.b, 0.14)
     readonly property color selectedFill: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
+    // Dev Stats look: soft tints of the text colour, a filled accent, ink that reads on the accent.
+    function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a) }
+    function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
+    function luma(c) { return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b }
+    readonly property color inkOnAccent: luma(accent) > 0.55 ? Qt.rgba(0.07, 0.07, 0.09, 1) : Qt.rgba(0.97, 0.97, 0.98, 1)
+    readonly property string statusLine: !widget ? "Starting…"
+        : Model.statusText(widget.phase, widget.secondsLeft, widget.last ? widget.last.title + (widget.last.artist ? "  ·  " + widget.last.artist : "") : "")
+          + (widget.continuous ? "  ·  continuous" : "")
+
+    // On / off switch, the same one Dev Stats uses.
+    component Sw: Rectangle {
+        id: sw
+        property bool on: false
+        property color ink: "white"
+        property color accent: "white"
+        property color knob: "black"
+        signal flipped()
+        implicitWidth: 34
+        implicitHeight: 18
+        radius: 9
+        color: on ? accent : Qt.rgba(ink.r, ink.g, ink.b, 0.18)
+        Behavior on color { ColorAnimation { duration: 100 } }
+        Rectangle {
+            width: 12; height: 12; radius: 6
+            y: 3
+            x: sw.on ? sw.width - width - 3 : 3
+            color: sw.on ? sw.knob : sw.ink
+            opacity: sw.on ? 1 : 0.7
+            Behavior on x { NumberAnimation { duration: 100 } }
+        }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: sw.flipped() }
+    }
     readonly property string fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
     readonly property int fsMain: Math.max(10, Math.round(Style.font.body * 0.9))
     readonly property int fsSub: Math.max(9, Math.round(Style.font.body * 0.8))
@@ -61,9 +96,9 @@ Panel {
         system: "This computer", microphone: "Microphone", listen: "Listen", panel: "Open panel"
     })
 
-    function open() { root.controller.show() }
-    function close() { root.controller.hide() }
-    function toggle() { if (root.opened) root.close(); else root.open() }
+    readonly property bool opened: visible
+    function open() { if (!root.visible) root.toggle() }
+    function close() { root.visible = false }
     function openTab(tab) { root.currentTab = tab; root.open() }
 
     // Which colour role the custom picker edits (a panel-local choice, not a setting).
@@ -98,117 +133,379 @@ Panel {
     }
 
 
-    KeyboardPanel {
-        id: panel
-        anchorItem: root.anchorItem
-        owner: root.hostWidget || root
-        bar: root.bar
-        focusTarget: keyCatcher
-        contentWidth: panel.fittedContentWidth(Style.space(460))
-        contentHeight: panel.fittedContentHeight(Style.space(640))
+        // ---- placement: never overlap the bar -----------------------------------------
+    // Worked out each time the panel is about to open (see toggle()), because the
+    // bar's position is not known yet when this file is first loaded.
+    //
+    // The panel is anchored to the outer edge of the bar's own window (not to the
+    // widget, which sits inside the bar's padding), and the gap is transparent
+    // padding inside the popup window, so it works whatever the compositor does
+    // with anchor margins.
+    property bool barAtTop: true              // horizontal bar: top edge (else bottom)
+    property bool barAtLeft: true             // vertical bar: left edge (else right)
+    property bool useRect: false              // anchor to the bar window's edge
+    property var anchorWin: null
+    property real rectX: 0
+    property real rectY: 0
+    property real rectW: 1
+    property real rectH: 1
+    property real extra: 0                    // extra clearance when only the widget is known
+    property real maxHeight: 620
+    readonly property int gap: 0              // free space between the bar and the panel (0 = flush)
+    readonly property real padTop: (!vertical && barAtTop) ? gap + extra : 0
+    readonly property real padBottom: (!vertical && !barAtTop) ? gap + extra : 0
+    readonly property real padLeft: (vertical && barAtLeft) ? gap + extra : 0
+    readonly property real padRight: (vertical && !barAtLeft) ? gap + extra : 0
 
-        // The popup surface is transparent. This fills the whole surface with the
-        // theme background, so the whole layout is the same colour (no wallpaper or
-        // border showing through, and no gaps at the edges).
-        Rectangle {
-            anchors.fill: parent
-            color: root.panelBg
+    function sideFromText(v) {
+        var t = String(v === undefined || v === null ? "" : v).toLowerCase()
+        if (t.indexOf("top") >= 0) return "top"
+        if (t.indexOf("bottom") >= 0) return "bottom"
+        if (t.indexOf("left") >= 0) return "left"
+        if (t.indexOf("right") >= 0) return "right"
+        return ""
+    }
+
+    function locate() {
+        var item = root.anchorItem
+        if (!item) return
+        var scr = item.screen
+        var sw = scr ? scr.width : 1920
+        var sh = scr ? scr.height : 1080
+        var side = ""
+        var qsWin = null
+        var win = null
+
+        // 1. the bar window knows which edges it is attached to
+        try { qsWin = item.QsWindow.window } catch (e0) { qsWin = null }
+        try { win = qsWin ? qsWin : item.Window.window } catch (e1) { win = null }
+        try {
+            var an = win ? win.anchors : null
+            if (an) {
+                if (root.vertical) {
+                    if (an.left && !an.right) side = "left"
+                    else if (an.right && !an.left) side = "right"
+                } else {
+                    if (an.top && !an.bottom) side = "top"
+                    else if (an.bottom && !an.top) side = "bottom"
+                }
+            }
+        } catch (e2) { side = "" }
+
+        // 2. the shell's bar object may say it outright
+        if (side === "" && root.barObject) {
+            var names = ["position", "barPosition", "edge", "side", "location", "placement", "barSide"]
+            for (var i = 0; i < names.length && side === ""; i++) {
+                var got = ""
+                try { got = root.sideFromText(root.barObject[names[i]]) } catch (e3) { got = "" }
+                if ((root.vertical && (got === "left" || got === "right"))
+                        || (!root.vertical && (got === "top" || got === "bottom")))
+                    side = got
+            }
         }
 
-        PanelKeyCatcher {
-            id: keyCatcher
-            anchors.fill: parent
-            onCloseRequested: root.close()
+        // 3. last resort: which half of the screen (only meaningful when the bar
+        //    window is as big as the screen)
+        var pos = item.mapToItem(null, 0, 0)
+        if (side === "") {
+            if (root.vertical) side = pos.x < sw / 2 ? "left" : "right"
+            else side = pos.y < sh / 2 ? "top" : "bottom"
+        }
+        root.barAtTop = side === "top"
+        root.barAtLeft = side === "left"
+
+        // Anchor rectangle on the bar window's outer edge (window coordinates).
+        var ww = (win && win.width > 0) ? win.width : 0
+        var wh = (win && win.height > 0) ? win.height : 0
+        var small = root.vertical ? (ww > 0 && ww < sw * 0.5) : (wh > 0 && wh < sh * 0.5)
+        root.useRect = !!qsWin && small
+        root.anchorWin = qsWin
+        if (root.useRect) {
+            if (root.vertical) {
+                root.rectW = 1
+                root.rectH = Math.max(1, item.height)
+                root.rectY = pos.y
+                root.rectX = side === "left" ? Math.max(0, ww - 1) : 0
+            } else {
+                root.rectW = Math.max(1, item.width)
+                root.rectH = 1
+                root.rectX = pos.x
+                root.rectY = side === "top" ? Math.max(0, wh - 1) : 0
+            }
+            root.extra = 0
+        } else {
+            root.extra = 6                    // only the widget is known: allow a little for bar padding
         }
 
-        Rectangle {
+        // Tallest the panel may be and still fit between the bar and the far edge.
+        var thick = (!root.vertical && wh > 0 && wh < sh * 0.5) ? wh : 40
+        var room = root.vertical ? sh - 40 : sh - thick - root.gap - root.extra - 16
+        root.maxHeight = Math.max(300, Math.min(680, room))
+    }
+
+    function toggle() {
+        // A click on the widget while the panel is open first closes it as an
+        // "outside click" (below); don't let the same click open it again.
+        if (!root.visible && Date.now() - root.grabClosedAt < 500) return
+        if (!root.visible) root.locate()
+        root.visible = !root.visible
+    }
+
+    // ---- click outside to close -----------------------------------------------------
+    // Hyprland's focus grab reports any click outside the panel. It is created at
+    // runtime so a shell without that module simply keeps the X button and Esc.
+    property var grab: null
+    property double grabClosedAt: 0
+
+    Component.onCompleted: {
+        try {
+            var g = Qt.createQmlObject(
+                'import Quickshell.Hyprland\nHyprlandFocusGrab { }', root, "OmatuneFocusGrab")
+            g.windows = [root]
+            g.cleared.connect(function() {
+                root.grabClosedAt = Date.now()
+                root.visible = false
+            })
+            root.grab = g
+        } catch (e) {
+            root.grab = null
+        }
+    }
+
+    // ---- window geometry -------------------------------------------------------
+    visible: false
+    color: "transparent"
+    // Listen grows with what it shows (SongRec notice, last result) so nothing runs into the footer.
+    readonly property real wantHeight: Style.space(currentTab === "settings" ? 640 : currentTab === "history" ? 520
+        : 330 + ((widget && widget.last) ? 170 : 0) + ((widget && widget.recognizerMissing) ? 130 : 0))
+    implicitWidth: Style.space(520) + root.padLeft + root.padRight
+    implicitHeight: Math.min(root.maxHeight, wantHeight) + root.padTop + root.padBottom
+
+    anchor.item: root.useRect ? null : root.anchorItem
+    anchor.window: root.useRect ? root.anchorWin : null
+    anchor.rect.x: root.rectX
+    anchor.rect.y: root.rectY
+    anchor.rect.width: root.rectW
+    anchor.rect.height: root.rectH
+    // The panel opens on the side of the anchor facing away from the bar.
+    anchor.edges: root.vertical ? (root.barAtLeft ? Edges.Right : Edges.Left)
+                                : (root.barAtTop ? Edges.Bottom : Edges.Top)
+    anchor.gravity: root.vertical ? (root.barAtLeft ? Edges.Right : Edges.Left)
+                                  : (root.barAtTop ? Edges.Bottom : Edges.Top)
+    // Only slide along the bar, never across it, so the panel can't be pushed onto the bar.
+    anchor.adjustment: root.vertical ? PopupAdjustment.SlideY : PopupAdjustment.SlideX
+
+    onVisibleChanged: {
+        if (root.grab) Qt.callLater(function() { root.grab.active = root.visible })
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.WindowShortcut
+        onActivated: root.visible = false
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: root.padTop
+        anchors.bottomMargin: root.padBottom
+        anchors.leftMargin: root.padLeft
+        anchors.rightMargin: root.padRight
+        color: root.panelBg
+        border.color: root.tint(0.14)
+        border.width: 1
+        radius: 12
+        clip: true
+
+        Item {
             id: card
-            x: 0; y: 0
-            width: parent ? parent.width : 0
-            height: parent ? parent.height : 0
-            // square corners: the background fills the whole layout, with no see-through corner cut-outs
-            radius: 0
-            color: root.panelBg
+            anchors.fill: parent
 
-            // ── header ──
+            // ── header card: continuous-listening switch, name and status, close ──
             Item {
                 id: header
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                height: Style.space(52)
+                anchors.margins: 14
+                height: Style.space(60)
 
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: Style.space(18)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "OMATUNE"
-                    color: root.fg
-                    font.family: root.fontFamily
-                    font.pixelSize: root.fsMain + 4
-                    font.bold: true
-                    font.letterSpacing: 1
-                    textFormat: Text.PlainText
-                }
-                FlatButton {
-                    anchors.right: parent.right
-                    anchors.rightMargin: Style.space(12)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "✕"
-                    hPad: Style.space(10)
-                    foreground: root.fg
-                    accent: root.accent
-                    fontFamily: root.fontFamily
-                    pixelSize: root.fsMain
-                    onClicked: root.close()
-                }
                 Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: 1
-                    color: root.faint
+                    anchors.fill: parent
+                    radius: 10
+                    color: root.tint(0.05)
+                    border.width: 1
+                    border.color: root.tint(0.08)
+                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
+
+                    Sw {
+                        Layout.alignment: Qt.AlignVCenter
+                        ink: root.fg
+                        accent: root.accent
+                        knob: root.inkOnAccent
+                        on: !!root.widget && root.widget.continuous
+                        onFlipped: if (root.widget) root.widget.setContinuous(!root.widget.continuous)
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Omatune"
+                            color: root.fg
+                            font.family: root.fontFamily
+                            font.pixelSize: root.fsSub + 2
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            textFormat: Text.PlainText
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.statusLine
+                            color: root.fg
+                            opacity: 0.6
+                            font.family: root.fontFamily
+                            font.pixelSize: root.fsSub
+                            elide: Text.ElideRight
+                            textFormat: Text.PlainText
+                        }
+                    }
+                    Rectangle {
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitWidth: 24; implicitHeight: 24; radius: 6
+                        color: closeArea.containsMouse ? root.tint(0.16) : root.tint(0.08)
+                        Text {
+                            anchors.centerIn: parent
+                            text: "×"
+                            color: root.fg
+                            font.pixelSize: 15
+                            textFormat: Text.PlainText
+                        }
+                        MouseArea {
+                            id: closeArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.close()
+                        }
+                    }
                 }
             }
 
-            // tabs
+            // ── tabs: plain labels, a thin line under the row, an accent bar under the active one ──
             Item {
                 id: tabs
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: header.bottom
-                height: Style.space(50)
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 12
+                height: 30
 
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: root.tint(0.10)
+                }
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: Style.space(14)
-                    anchors.rightMargin: Style.space(14)
-                    anchors.topMargin: Style.space(10)
-                    anchors.bottomMargin: Style.space(10)
-                    spacing: Style.space(6)
-
+                    spacing: 0
                     Repeater {
                         model: [
                             { key: "listen", label: "Listen" },
                             { key: "history", label: "History" },
                             { key: "settings", label: "Settings" }
                         ]
-                        delegate: FlatButton {
-                            id: tabBtn
+                        delegate: Item {
+                            id: tabItem
                             required property var modelData
+                            readonly property bool on: root.currentTab === tabItem.modelData.key
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 1
                             Layout.fillHeight: true
-                            outlined: true
-                            hPad: Style.space(4)
-                            text: tabBtn.modelData.label
-                            selected: root.currentTab === tabBtn.modelData.key
-                            foreground: root.fg
-                            accent: root.accent
-                            fontFamily: root.fontFamily
-                            pixelSize: root.fsSub
-                            onClicked: root.currentTab = tabBtn.modelData.key
+                            Text {
+                                anchors.centerIn: parent
+                                anchors.verticalCenterOffset: -1
+                                text: tabItem.modelData.label
+                                color: root.fg
+                                opacity: tabItem.on ? 1.0 : (tabArea.containsMouse ? 0.8 : 0.5)
+                                font.family: root.fontFamily
+                                font.pixelSize: root.fsSub + 1
+                                font.weight: tabItem.on ? Font.DemiBold : Font.Normal
+                                textFormat: Text.PlainText
+                            }
+                            Rectangle {
+                                visible: tabItem.on
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 2
+                                radius: 1
+                                color: root.accent
+                            }
+                            MouseArea {
+                                id: tabArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentTab = tabItem.modelData.key
+                            }
                         }
                     }
+                }
+            }
+
+            // ── footer ──
+            RowLayout {
+                id: footer
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.bottomMargin: 10
+                height: 16
+                spacing: 6
+                Rectangle {
+                    implicitWidth: escLabel.implicitWidth + 10
+                    implicitHeight: 16
+                    radius: 4
+                    color: root.tint(0.08)
+                    Text {
+                        id: escLabel
+                        anchors.centerIn: parent
+                        text: "Esc"
+                        color: root.fg
+                        opacity: 0.75
+                        font.family: root.fontFamily
+                        font.pixelSize: 8
+                        textFormat: Text.PlainText
+                    }
+                }
+                Text {
+                    text: "close"
+                    color: root.fg
+                    opacity: 0.45
+                    font.family: root.fontFamily
+                    font.pixelSize: 8
+                    textFormat: Text.PlainText
+                }
+                Item { Layout.fillWidth: true }
+                Text {
+                    text: "Changes apply instantly"
+                    color: root.fg
+                    opacity: 0.45
+                    font.family: root.fontFamily
+                    font.pixelSize: 8
+                    textFormat: Text.PlainText
                 }
             }
 
@@ -217,13 +514,24 @@ Panel {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: tabs.bottom
-                anchors.bottom: parent.bottom
-                anchors.margins: Style.space(16)
+                anchors.bottom: footer.top
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 12
+                anchors.bottomMargin: 10
                 currentIndex: ["listen", "history", "settings"].indexOf(root.currentTab)
 
                 // LISTEN
+                Rectangle {
+                    radius: 10
+                    color: root.tint(0.035)
+                    border.width: 1
+                    border.color: root.tint(0.07)
+
                 ColumnLayout {
-                    spacing: Style.space(14)
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: Style.space(12)
 
                     // first-run setup: SongRec is a separate package the user installs themselves.
                     Rectangle {
@@ -272,58 +580,9 @@ Panel {
                         }
                     }
 
-                    // continuous listening: identify songs one after another, no clicking
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Style.space(10)
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: Style.space(2)
-                            Text {
-                                Layout.fillWidth: true
-                                text: "Continuous listening"
-                                color: root.fg
-                                font.family: root.fontFamily
-                                font.pixelSize: root.fsMain
-                                textFormat: Text.PlainText
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                text: "Keeps identifying songs one after another. A song that repeats is not logged twice."
-                                color: root.dim
-                                font.family: root.fontFamily
-                                font.pixelSize: root.fsSub
-                                wrapMode: Text.Wrap
-                                textFormat: Text.PlainText
-                            }
-                        }
-                        FlatButton {
-                            text: "Off"
-                            outlined: true
-                            selected: !root.widget || !root.widget.continuous
-                            implicitHeight: Style.space(30)
-                            foreground: root.fg
-                            accent: root.accent
-                            fontFamily: root.fontFamily
-                            pixelSize: root.fsSub
-                            onClicked: root.widget.setContinuous(false)
-                        }
-                        FlatButton {
-                            text: "On"
-                            outlined: true
-                            selected: !!root.widget && root.widget.continuous
-                            implicitHeight: Style.space(30)
-                            foreground: root.fg
-                            accent: root.accent
-                            fontFamily: root.fontFamily
-                            pixelSize: root.fsSub
-                            onClicked: root.widget.setContinuous(true)
-                        }
-                    }
-
                     FlatButton {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: Style.space(44)
+                        Layout.preferredHeight: Style.space(36)
                         outlined: true
                         selected: true
                         enabled: root.widget && !root.widget.continuous && (root.widget.phase === "idle" || root.widget.phase === "error")
@@ -344,7 +603,7 @@ Panel {
                               ? root.widget.errorText
                               : root.widget && root.widget.continuous
                                 ? "Continuous: " + (root.widget.phase === "identifying" ? "identifying…" : "listening to " + (root.optionLabels[root.cfg.source] || "this computer") + "…")
-                                : "Listening to " + (root.optionLabels[root.cfg.source] || "this computer") + "."
+                                : "Listening to " + (root.optionLabels[root.cfg.source] || "this computer") + ". Use the switch above for continuous listening: songs are identified one after another, and a repeat is not logged twice."
                         color: root.widget && root.widget.phase === "error" ? root.accent : root.dim
                         font.family: root.fontFamily
                         font.pixelSize: root.fsSub
@@ -352,23 +611,26 @@ Panel {
                         textFormat: Text.PlainText
                     }
 
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        visible: !!root.widget && !!root.widget.last
+                        color: root.tint(0.08)
+                    }
+
                     // last result
                     Rectangle {
                         id: resultCard
                         Layout.fillWidth: true
-                        Layout.preferredHeight: resultCol.implicitHeight + Style.space(28)
+                        Layout.preferredHeight: resultCol.implicitHeight
                         visible: !!root.widget && !!root.widget.last
-                        radius: Style.space(12)
-                        color: root.selectedFill
-                        border.width: 1
-                        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.5)
+                        color: "transparent"
 
                         ColumnLayout {
                             id: resultCol
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.margins: Style.space(14)
                             spacing: Style.space(12)
 
                             RowLayout {
@@ -484,9 +746,18 @@ Panel {
 
                     Item { Layout.fillHeight: true }
                 }
+                }
 
                 // HISTORY
+                Rectangle {
+                    radius: 10
+                    color: root.tint(0.035)
+                    border.width: 1
+                    border.color: root.tint(0.07)
+
                 ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 14
                     spacing: Style.space(10)
 
                     // filter: all songs, or favourites only
@@ -560,10 +831,9 @@ Panel {
                             required property var modelData
                             width: historyList.width
                             height: Style.space(56)
-                            radius: Style.space(10)
-                            color: histMouse.containsMouse ? root.selectedFill : "transparent"
-                            border.width: 1
-                            border.color: root.faint
+                            radius: 8
+                            color: histMouse.containsMouse ? root.tint(0.10) : root.tint(0.06)
+                            border.width: 0
 
                             Column {
                                 anchors.left: parent.left
@@ -634,6 +904,8 @@ Panel {
                     }
                 }
 
+                }
+
                 // SETTINGS (built from Settings.js: grouped, every option visible, applied at once)
                 Flickable {
                     id: settingsFlick
@@ -641,13 +913,26 @@ Panel {
                     clip: true
                     boundsBehavior: Flickable.StopAtBounds
 
+                    Rectangle {
+                        x: 0; y: 0
+                        width: settingsFlick.width
+                        height: settingsCol.implicitHeight
+                        radius: 10
+                        color: root.tint(0.035)
+                        border.width: 1
+                        border.color: root.tint(0.07)
+                    }
+
                     ColumnLayout {
                         id: settingsCol
                         width: settingsFlick.width
-                        spacing: Style.space(8)
+                        spacing: 0
 
                         Text {
                             Layout.fillWidth: true
+                            Layout.leftMargin: Style.space(12)
+                            Layout.rightMargin: Style.space(12)
+                            Layout.topMargin: Style.space(12)
                             Layout.bottomMargin: Style.space(4)
                             text: root.cfg.theme === "follow" && root.widget && root.widget.omarchyNote
                                   ? "Changes apply straight away. " + root.widget.omarchyNote
@@ -668,17 +953,19 @@ Panel {
                                 Layout.fillWidth: true
                                 readonly property bool isHeader: modelData.type === "header"
                                 readonly property int pad: Style.space(12)
-                                readonly property real innerWidth: width - (isHeader ? 0 : pad * 2)
+                                readonly property real innerWidth: width - pad * 2
                                 implicitHeight: content.implicitHeight + (isHeader ? 0 : pad * 2)
 
-                                // a soft card behind each setting (group headers stay bare)
+                                // thin divider under each setting (the whole list sits in one card)
                                 Rectangle {
-                                    anchors.fill: parent
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    anchors.leftMargin: row.pad
+                                    anchors.rightMargin: row.pad
+                                    height: 1
                                     visible: !row.isHeader
-                                    radius: Style.space(12)
-                                    color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.04)
-                                    border.width: 1
-                                    border.color: root.faint
+                                    color: root.tint(0.07)
                                 }
 
                                 // Each row kind is a component, chosen below.
@@ -729,34 +1016,21 @@ Panel {
                                     }
                                 }
 
-                                // on / off: both options visible, the active one filled
+                                // on / off: a switch
                                 Component {
                                     id: boolC
                                     Item {
                                         width: row.innerWidth
                                         height: Math.max(labelBlock.height, Style.space(34)) + Style.space(12)
-                                        Loader { id: labelBlock; sourceComponent: labelsC; width: parent.width - Style.space(150); anchors.verticalCenter: parent.verticalCenter }
-                                        Row {
+                                        Loader { id: labelBlock; sourceComponent: labelsC; width: parent.width - Style.space(60); anchors.verticalCenter: parent.verticalCenter }
+                                        Sw {
                                             anchors.right: parent.right
                                             anchors.verticalCenter: parent.verticalCenter
-                                            spacing: Style.space(6)
-                                            Repeater {
-                                                model: [{ v: false, t: "Off" }, { v: true, t: "On" }]
-                                                delegate: FlatButton {
-                                                    id: onOff
-                                                    required property var modelData
-                                                    outlined: true
-                                                    selected: (root.cfg[row.modelData.key] === true) === onOff.modelData.v
-                                                    implicitHeight: Style.space(30)
-                                                    width: Style.space(64)
-                                                    text: onOff.modelData.t
-                                                    foreground: root.fg
-                                                    accent: root.accent
-                                                    fontFamily: root.fontFamily
-                                                    pixelSize: root.fsSub
-                                                    onClicked: root.widget.setValue(row.modelData.key, onOff.modelData.v)
-                                                }
-                                            }
+                                            ink: root.fg
+                                            accent: root.accent
+                                            knob: root.inkOnAccent
+                                            on: root.cfg[row.modelData.key] === true
+                                            onFlipped: root.widget.setValue(row.modelData.key, !(root.cfg[row.modelData.key] === true))
                                         }
                                     }
                                 }
@@ -857,10 +1131,9 @@ Panel {
                                             fontFamily: root.fontFamily
                                             pixelSize: root.fsMain
                                             text: String(root.cfg[row.modelData.key] !== undefined ? root.cfg[row.modelData.key] : "")
-                                            // Only react to real typing. The field's binding also
-                                            // updates when `cfg` changes for unrelated reasons, and
-                                            // saving those values back would loop.
-                                            onTextChanged: if (focused) root.widget.setValue(row.modelData.key, text)
+                                            // `edited` fires only for real typing or a bounded paste,
+                                            // never when `cfg` updates the text, so nothing loops.
+                                            onEdited: function(value) { root.widget.setValue(row.modelData.key, value) }
                                         }
                                     }
                                 }
@@ -918,14 +1191,11 @@ Panel {
                                                 fontFamily: root.fontFamily
                                                 pixelSize: root.fsMain
                                                 text: String(root.cfg[root.colorRole] !== undefined ? root.cfg[root.colorRole] : "")
-                                                // Only save real typing. The binding above also
-                                                // updates the text whenever `cfg` changes, which
-                                                // happens on every setValue; without this guard, the
-                                                // field would re-save the same value on each update,
-                                                // rebuilding `cfg` and re-colouring the whole panel.
-                                                onTextChanged: {
-                                                    if (!focused) return
-                                                    var v = text.trim()
+                                                maxLength: 7
+                                                // `edited` fires only for real typing or a bounded paste,
+                                                // so a `cfg` update never re-saves the same value.
+                                                onEdited: function(value) {
+                                                    var v = value.trim()
                                                     if (/^#[0-9a-fA-F]{6}$/.test(v)) root.widget.setValue(root.colorRole, v.toLowerCase())
                                                 }
                                             }
@@ -968,7 +1238,7 @@ Panel {
                                 Loader {
                                     id: content
                                     width: row.innerWidth
-                                    x: row.isHeader ? 0 : row.pad
+                                    x: row.pad
                                     y: row.isHeader ? 0 : row.pad
                                     sourceComponent: row.modelData.type === "header" ? headerC
                                                    : row.modelData.type === "palette" ? paletteC
@@ -983,34 +1253,6 @@ Panel {
                     }
                 }
             }
-        }
-    }
-
-    // keep the popup in sync with the controller, and vice versa
-    //
-    // The popup used to be driven by a plain binding (`open: root.opened`).
-    // That binding is broken the moment the compositor dismisses the popup on
-    // a click outside: the compositor sets `open` imperatively, and from then
-    // on `controller.show()` no longer reaches the popup, so the panel never
-    // comes back until the shell is restarted.
-    //
-    // Driving `open` from `opened` through a signal, and telling the
-    // controller when the popup closes on its own, survives that.
-
-    // 1) When the controller's `opened` changes, push it to the popup.
-    Connections {
-        target: root
-        function onOpenedChanged() { panel.open = root.opened }
-    }
-
-    // 2) When the popup closes itself (compositor click-outside), let the
-    //    controller know, so `opened` and the controller's internal state
-    //    go back to false and the next `show()` is a real transition.
-    Connections {
-        target: panel
-        function onOpenChanged() {
-            if (!panel.open && root.opened)
-                root.controller.hide()
         }
     }
 }

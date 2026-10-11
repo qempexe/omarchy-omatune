@@ -6,7 +6,7 @@ Song recognition in your [Omarchy](https://omarchy.org) bar. Click the icon, let
 
 ## Features
 
-- **Identify**: press **Listen** in the panel to record a few seconds (length is configurable). Or turn on **Continuous listening** to keep identifying songs one after another with no clicks.
+- **Identify**: press **Listen** in the panel to record a few seconds (length is configurable). Or flip the switch in the panel header (**Continuous listening**) to keep identifying songs one after another with no clicks.
 - **Notifications**: the song title and artist, with the album cover as the picture. The cover is downloaded once and cached.
 - **Listen to this computer or the microphone**: *This computer* records whatever is playing; *Microphone* listens to the room.
 - **Themes**: *Follow Omarchy* uses your live Omarchy theme and updates the moment you switch it. *Custom* lets you choose the background, text and accent from a palette or a hex code. *Monochrome* is greyscale.
@@ -53,7 +53,7 @@ omarchy restart shell
 
 | Action                    | How                                                                |
 | ------------------------- | ------------------------------------------------------------------ |
-| Identify a song           | Open the panel and press **Listen**, or turn on **Continuous listening** |
+| Identify a song           | Open the panel and press **Listen**, or flip the header switch for **Continuous listening** |
 | Open the panel            | Left-click the bar icon (Listen tab)                               |
 | Open History              | Middle-click the bar icon                                          |
 | Open Settings             | Right-click the bar icon                                           |
@@ -83,7 +83,7 @@ Right-click the bar icon to open the panel on the **Settings** tab. Settings are
 **History**
 - **Songs to keep**: 5 to 100.
 
-Settings are saved in `~/.local/state/omatune/settings.json` and also pushed to `omarchy bar set`, so they survive restarts.
+Settings are saved automatically in `~/.local/state/omarchy-omatune/settings.json` and survive restarts. Changes show up instantly and are written to disk in the background, so dragging a control or typing never slows the shell. Nothing is sent to `omarchy bar set`, because that rewrites the shell config and reloads the whole shell.
 
 ## How it works
 
@@ -91,6 +91,8 @@ Settings are saved in `~/.local/state/omatune/settings.json` and also pushed to 
 - **Setup**: on start-up the widget runs `command -v songrec`. If it is missing, the Listen tab shows a notice asking you to install it; press **Recheck** once it is on your `PATH`. Omatune never invokes a package manager and never installs, upgrades or removes anything.
 - **Identifying**: `songrec audio-file-to-recognized-song` prints the Shazam response as JSON, which is parsed for the title, artist, album, cover and link. The recording is deleted straight after.
 - **Notification**: `notify-send` shows the title as the heading and the artist (and album) underneath. The cover is downloaded with `curl` into `~/.cache/omatune/covers/`.
+- **Settings**: kept in memory so they apply at once, and saved to `~/.local/state/omarchy-omatune/settings.json`. A first change is written immediately and a quick series of changes is written once, shortly after the last one. The store ignores the file watcher's echo of its own writes, so a slider never jumps back, and edits made before the file has loaded are merged over it instead of replacing it. Edits to the file by hand are picked up.
+- **Text fields**: the bar icon and hex colour fields are a small custom editor, not a `TextInput`, so they never read the clipboard in the background. **Ctrl+V** (or **Shift+Insert**) does one bounded paste through `wl-paste`: the first line only, at most 1 KB. Mouse selection, copy and cut are not supported; **Ctrl+A** selects all.
 - **History**: `~/.local/state/omatune/history.json`.
 - **Favourites**: `~/.local/state/omatune/favourites.json`. Nothing else is stored.
 - **Theme**: *Follow Omarchy* reads the active theme's `colors.toml` (or the per-app files of older themes) from `~/.config/omarchy/current/theme/`. It re-reads when `current/theme.name` changes, and polls every two seconds as a backstop. The Settings tab says which theme it is following, or why it could not read one.
@@ -111,11 +113,13 @@ Identifying a song sends a fingerprint of the recording to Shazam through SongRe
 | ----------------------- | ---------------------------------------------------------------- |
 | `manifest.json`         | Omarchy plugin manifest (generated from `Settings.js`)           |
 | `BarWidget.qml`         | Bar icon, recording and identification, notifications, history   |
-| `Panel.qml`             | The popup: Listen, History (All / Favourites) and Settings tabs  |
+| `Foreground.qml`        | Hidden probe that reads the bar's colours for the popup          |
+| `Panel.qml`             | The popup window: Listen, History (All / Favourites) and Settings tabs |
 | `Settings.js`           | The list of settings, shared by the manifest and the Settings tab |
 | `Model.js`              | Pure logic: parsing results, colours, settings, history          |
-| `SettingsStore.qml`     | Saves settings locally and pushes them to `omarchy bar set`      |
-| `FlatButton.qml`, `FieldBox.qml`, `SectionLabel.qml` | Small themed UI pieces               |
+| `SettingsStore.qml`     | Instant, autosaved local settings (never calls `omarchy bar set`) |
+| `FieldBox.qml`          | Text field with its own editor and a bounded Ctrl+V paste        |
+| `FlatButton.qml`, `SectionLabel.qml` | Small themed UI pieces                              |
 | `tools/gen-manifest.js` | Regenerates `manifest.json` from `Settings.js`                   |
 | `tests/test_model.js`   | Unit tests for the pure logic and the manifest                   |
 | `preview.png`           | Title card used in this README and the marketplace               |
@@ -142,6 +146,7 @@ omarchy restart shell
 
 ## Changelog
 
+- **1.1.0**: the new look: its own rounded window with a thin border, a header card with the continuous-listening switch, underlined tabs, one card per tab, switches for on/off settings, and a Listen tab that grows so nothing overlaps the footer. Settings now apply instantly and autosave locally without calling `omarchy bar set`, so changing a setting no longer freezes the shell. The bar icon and hex colour fields no longer read the clipboard in the background; paste is a single bounded Ctrl+V.
 - **1.0.1**: first-use SongRec setup notice in the Listen tab; README click actions corrected; description reworded.
 - **1.0.0**: first release.
 
@@ -161,7 +166,7 @@ omarchy plugin remove io.github.qempexe.omatune
 Then remove the `{ "id": "io.github.qempexe.omatune" }` entry from your bar layout in `shell.json` by hand, and restart the shell. To delete the saved history and cached covers:
 
 ```
-rm -rf ~/.local/state/omatune ~/.cache/omatune
+rm -rf ~/.local/state/omatune ~/.local/state/omarchy-omatune ~/.cache/omatune
 ```
 
 ## Credits and thanks
