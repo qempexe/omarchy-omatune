@@ -8,7 +8,7 @@ import qs.Ui
 import "Model.js" as Model
 import "Settings.js" as Settings
 
-// Popup with three tabs: Listen (the last song), History, Settings (built from Settings.js).
+// Popup with four tabs: Listen (the last song), History, Settings (built from Settings.js) and About.
 PopupWindow {
     id: root
 
@@ -280,6 +280,7 @@ PopupWindow {
     color: "transparent"
     // Listen grows with what it shows (SongRec notice, last result) so nothing runs into the footer.
     readonly property real wantHeight: Style.space(currentTab === "settings" ? 640 : currentTab === "history" ? 520
+        : currentTab === "about" ? 460
         : 330 + ((widget && widget.last) ? 170 : 0) + ((widget && widget.recognizerMissing) ? 130 : 0))
     implicitWidth: Style.space(520) + root.padLeft + root.padRight
     implicitHeight: Math.min(root.maxHeight, wantHeight) + root.padTop + root.padBottom
@@ -425,7 +426,8 @@ PopupWindow {
                         model: [
                             { key: "listen", label: "Listen" },
                             { key: "history", label: "History" },
-                            { key: "settings", label: "Settings" }
+                            { key: "settings", label: "Settings" },
+                            { key: "about", label: "About" }
                         ]
                         delegate: Item {
                             id: tabItem
@@ -522,7 +524,7 @@ PopupWindow {
                 anchors.rightMargin: 14
                 anchors.topMargin: 12
                 anchors.bottomMargin: 10
-                currentIndex: ["listen", "history", "settings"].indexOf(root.currentTab)
+                currentIndex: ["listen", "history", "settings", "about"].indexOf(root.currentTab)
 
                 // LISTEN
                 Rectangle {
@@ -1258,6 +1260,21 @@ PopupWindow {
                                 }
                             }
                         }
+                    }
+                }
+
+                // ABOUT
+                Rectangle {
+                    radius: 10
+                    color: root.tint(0.035)
+                    border.width: 1
+                    border.color: root.tint(0.07)
+                    AboutPage {
+                        anchors.fill: parent
+                        fg: root.fg
+                        accent: root.accent
+                        fontFamily: root.fontFamily
+                        lightSurface: root.luma(root.panelBg) > 0.5
                     }
                 }
             }
