@@ -59,7 +59,9 @@ PopupWindow {
     function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a) }
     function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
     function luma(c) { return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b }
-    readonly property color inkOnAccent: luma(accent) > 0.55 ? Qt.rgba(0.07, 0.07, 0.09, 1) : Qt.rgba(0.97, 0.97, 0.98, 1)
+    // on the accent: black or white, or in Custom your own text colour
+    readonly property color inkOnAccent: root.cfg.theme === "custom" ? root.fg
+        : (luma(accent) > 0.55 ? Qt.rgba(0.07, 0.07, 0.09, 1) : Qt.rgba(0.97, 0.97, 0.98, 1))
     readonly property string statusLine: !widget ? "Starting…"
         : Model.statusText(widget.phase, widget.secondsLeft, widget.last ? widget.last.title + (widget.last.artist ? "  ·  " + widget.last.artist : "") : "")
           + (widget.continuous ? "  ·  continuous" : "")

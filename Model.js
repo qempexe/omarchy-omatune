@@ -101,35 +101,14 @@ const MONO = { background: "#141414", text: "#e0e0e0", accent: "#aaaaaa" }
 
 function isHex(s) { return /^#[0-9a-fA-F]{6}$/.test(String(s || "")) }
 
-// readability
-// WCAG relative luminance and contrast ratio between two "#rrggbb" colours.
-function _lum(hex) {
-    let n = parseInt(String(hex).slice(1), 16), out = 0, w = [0.2126, 0.7152, 0.0722]
-    for (let i = 0; i < 3; i++) {
-        const c = ((n >> (16 - 8 * i)) & 255) / 255
-        out += w[i] * (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
-    }
-    return out
-}
-function contrast(a, b) {
-    const x = _lum(a), y = _lum(b), hi = Math.max(x, y), lo = Math.min(x, y)
-    return (hi + 0.05) / (lo + 0.05)
-}
-// Keep `fg` when it reads well on `bg`; otherwise use near-black or near-white, whichever reads better.
-function readableOn(fg, bg, minRatio) {
-    if (contrast(fg, bg) >= minRatio) return fg
-    return contrast("#141414", bg) >= contrast("#f5f5f5", bg) ? "#141414" : "#f5f5f5"
-}
-
 // theme: "follow" | "custom" | "mono". omarchy = parsed Omarchy theme or null.
-// Custom colours are never stored changed, but text and accent are shown readable on the
-// chosen background (a light background with the default light text would otherwise vanish).
+// Custom colours are used exactly as picked, whatever they look like together.
 function resolveColors(cfg, omarchy) {
     if (cfg.theme === "custom") {
         const bg = isHex(cfg.customBackground) ? cfg.customBackground : MONO.background
         const tx = isHex(cfg.customText) ? cfg.customText : MONO.text
         const ac = isHex(cfg.customAccent) ? cfg.customAccent : MONO.accent
-        return { background: bg, text: readableOn(tx, bg, 4.5), accent: readableOn(ac, bg, 3) }
+        return { background: bg, text: tx, accent: ac }
     }
     if (cfg.theme === "follow" && omarchy && isHex(omarchy.background) && isHex(omarchy.text))
         return { background: omarchy.background, text: omarchy.text, accent: isHex(omarchy.accent) ? omarchy.accent : omarchy.text }
