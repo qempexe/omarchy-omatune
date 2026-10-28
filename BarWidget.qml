@@ -218,7 +218,7 @@ BarWidget {
     function loadHistory(text) {
         try {
             const arr = JSON.parse(String(text || "[]"))
-            history = Array.isArray(arr) ? arr.slice(0, 100) : []
+            history = Model.cleanSongs(arr, 100)
         } catch (e) { history = [] }
         last = history.length ? history[0] : null
     }
@@ -241,7 +241,7 @@ BarWidget {
         onLoaded: {
             try {
                 const a = JSON.parse(text())
-                root.favourites = Array.isArray(a) ? a : []
+                root.favourites = Model.cleanSongs(a, 500)
             } catch (e) { root.favourites = [] }
         }
         onLoadFailed: root.favourites = []

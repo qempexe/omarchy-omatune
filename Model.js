@@ -4,7 +4,7 @@
 // validating settings and keeping the history. No Qt here, so it can be unit-tested with node.
 
 function str(v, max) {
-    const s = String(v === undefined || v === null ? "" : v).replace(/\s+/g, " ").trim()
+    const s = (typeof v === "string" || typeof v === "number" ? String(v) : "").replace(/\s+/g, " ").trim()
     return s.length > (max || 200) ? s.slice(0, (max || 200) - 1) + "…" : s
 }
 
@@ -63,6 +63,22 @@ function historyPush(list, entry, max) {
     }
     const cap = Math.max(1, Math.round(Number(max) || 20))
     return out.slice(0, cap)
+}
+
+// A list read back from history.json or favourites.json, which could be edited by hand:
+// only songs with a title, only these fields, links that are plain https or http, at most `max`.
+function cleanSongs(list, max) {
+    const out = [], src = Array.isArray(list) ? list : []
+    const cap = Math.max(1, Math.round(Number(max) || 100))
+    for (let i = 0; i < src.length && out.length < cap; i++) {
+        const e = src[i]
+        if (!e || typeof e !== "object") continue
+        const title = str(e.title)
+        if (!title) continue
+        const at = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(String(e.at || "")) ? String(e.at) : ""
+        out.push({ title, artist: str(e.artist), album: str(e.album), cover: safeUrl(e.cover), url: safeUrl(e.url), at })
+    }
+    return out
 }
 
 // favourites
