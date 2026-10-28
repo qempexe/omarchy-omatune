@@ -94,7 +94,7 @@ PopupWindow {
     readonly property int fsSub: Math.max(9, Math.round(Style.font.body * 0.8))
 
     readonly property var optionLabels: ({
-        follow: "Follow Omarchy", custom: "Custom", brown: "Brown", mono: "Monochrome",
+        follow: "Follow Omarchy", custom: "Custom", mono: "Monochrome",
         system: "This computer", microphone: "Microphone", listen: "Listen", panel: "Open panel"
     })
 
