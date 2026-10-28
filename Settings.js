@@ -4,16 +4,16 @@
 // panel's Settings tab is built from it, grouped in the order below.
 //   type "palette" is a UI-only row (the custom colour picker); it is not saved or put in the manifest.
 //   ui "hidden" rows are saved but have no row of their own (the custom colours use the picker).
-var GROUPS = ["Look", "Listening", "Notifications", "History"];
+const GROUPS = ["Look", "Listening", "Notifications", "History"];
 
 // Swatches offered by the custom colour picker (dark backgrounds, light text, a few accents).
-var PALETTE = [
+const PALETTE = [
     "#141414", "#1d1510", "#1a1b26", "#282a36", "#2e3440", "#2d353b", "#1f1f28", "#3b2a1f",
     "#e0e0e0", "#eadbc8", "#ffffff", "#c0caf5", "#d8dee9", "#dcd7ba", "#f8f8f2", "#e0def4",
     "#d4a35a", "#c8925a", "#7aa2f7", "#cba6f7", "#a7c080", "#88c0d0", "#fabd2f", "#ff6a1f"
 ];
 
-var SCHEMA = [
+const SCHEMA = [
     { key: "theme", group: "Look", type: "enum", label: "Theme",
       options: ["follow", "custom", "mono"], labels: ["Follow Omarchy", "Custom", "Monochrome"], defaultValue: "follow",
       description: "Follow Omarchy changes the moment you switch Omarchy's theme. Custom lets you choose every colour. Monochrome is plain grey." },
@@ -53,7 +53,7 @@ function realSettings() {
 }
 
 function defaults() {
-    var out = {}, s = realSettings()
-    for (var i = 0; i < s.length; i++) out[s[i].key] = s[i].defaultValue
+    const out = {}, s = realSettings()
+    for (let i = 0; i < s.length; i++) out[s[i].key] = s[i].defaultValue
     return out
 }
