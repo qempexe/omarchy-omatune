@@ -22,7 +22,7 @@ PopupWindow {
     property var hostWidget: null
     property var widget: null
 
-    // the shell's bar colour, so the widget can match the installed Omarchy theme to it (as Omatravel does)
+    // the shell's bar colour, so the widget can match the installed Omarchy theme to it
     // The shell's live bar colours. `bar.background` / `bar.foreground` are the documented ones;
     // `barBackground` / `barForeground` on the base Panel are a second source when they exist.
     readonly property var shellBgColor: (root.bar && root.bar.background !== undefined) ? root.bar.background
@@ -55,7 +55,7 @@ PopupWindow {
     readonly property color dim: Qt.rgba(fg.r, fg.g, fg.b, 0.56)
     readonly property color faint: Qt.rgba(fg.r, fg.g, fg.b, 0.14)
     readonly property color selectedFill: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
-    // Dev Stats look: soft tints of the text colour, a filled accent, ink that reads on the accent.
+    // soft tints of the text colour, a filled accent, ink that reads on the accent
     function tint(a) { return Qt.rgba(fg.r, fg.g, fg.b, a) }
     function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
     function luma(c) { return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b }
@@ -64,7 +64,7 @@ PopupWindow {
         : Model.statusText(widget.phase, widget.secondsLeft, widget.last ? widget.last.title + (widget.last.artist ? "  ·  " + widget.last.artist : "") : "")
           + (widget.continuous ? "  ·  continuous" : "")
 
-    // On / off switch, the same one Dev Stats uses.
+    // on / off switch
     component Sw: Rectangle {
         id: sw
         property bool on: false
@@ -946,7 +946,7 @@ PopupWindow {
                         }
 
                         Repeater {
-                            // built only while the panel is open (as Omatravel does), so no text field keeps focus after it closes
+                            // built only while the panel is open so no text field keeps focus after it closes
                             model: root.opened ? root.settingRows : []
                             delegate: Item {
                                 id: row
