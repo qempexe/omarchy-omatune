@@ -164,15 +164,18 @@ Settings saved by Omatune 1.1 keep working.
   SongRec. If songs are found but details are missing, check what
   `songrec audio-file-to-recognized-song <file.wav>` prints and open an issue.
 - **Privacy.** Identifying sends a fingerprint of the clip to Shazam, through SongRec.
-  The clip itself is deleted straight after. The only other network use is downloading
-  the cover from the https address Shazam gives.
+  The clip is recorded into `~/.cache/omatune/capture`, a folder only you can open
+  (0700), as a file only you can read (0600), and deleted as soon as SongRec has read
+  it. Omatune won't record if that folder is a link or isn't yours. The only other
+  network use is downloading the cover from the https address Shazam gives.
 - **Covers.** A cover is never shown as it is downloaded: `curl` fetches it over https
   only, with a size cap (8 MiB) and a time limit, and `vipsthumbnail` makes it into a
   small, clean PNG in a separate process with a memory and a time limit. Only that PNG
   is shown, in the panel and in the notification. The copies live in
   `~/.cache/omatune/covers` and are cleared at every start.
 - **Files.** The history is in `~/.local/state/omatune/history.json` and the favourites
-  in `favourites.json` next to it. Both are checked when they are read back.
+  in `favourites.json` next to it. Both are checked when they are read back. That
+  folder and the settings folder are made private (0700) at every start.
 - **Text fields.** The search, bar icon and hex fields never read the clipboard by themselves.
   **Ctrl+V** (or **Shift+Insert**) pastes once through `wl-paste`, the first line only,
   at most 1 KB.

@@ -38,7 +38,10 @@ BarWidget {
     readonly property string home: Quickshell.env("HOME")
     readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state") + "/omatune"
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/omatune"
-    readonly property string capturePath: cacheDir + "/capture.wav"
+    // The clip is recorded into a folder only you can open, and lives only until
+    // SongRec has read it.
+    readonly property string captureDir: cacheDir + "/capture"
+    readonly property string capturePath: captureDir + "/clip.wav"
 
     // ── recording state ──
     property string phase: "idle"          // idle | listening | identifying | error
@@ -69,7 +72,17 @@ BarWidget {
     // so the outcome never depends on the order in which the process streams finish.
     readonly property string captureScript: [
         'f="$1"; mode="$2"; secs="$3"',
-        'mkdir -p "$(dirname "$f")"; rm -f "$f"',
+        // new files are yours alone (0600), in folders yours alone (0700), never
+        // through a link someone else placed there
+        'umask 077',
+        'd=$(dirname -- "$f")',
+        'for x in "$(dirname -- "$d")" "$d"; do',
+        '  [ -L "$x" ] && { echo "@@ERR $x is a link, not recording"; exit 0; }',
+        '  mkdir -p -m 700 -- "$x" 2>/dev/null',
+        '  [ -d "$x" ] && [ -O "$x" ] || { echo "@@ERR $x is not your folder, not recording"; exit 0; }',
+        '  chmod 700 -- "$x" || { echo "@@ERR could not make $x private"; exit 0; }',
+        'done',
+        'rm -f -- "$f"',
         'command -v songrec >/dev/null 2>&1 || { echo "@@ERR songrec is not installed. Install it, then press Recheck."; exit 0; }',
         'if command -v pw-record >/dev/null 2>&1; then',
         '  if [ "$mode" = system ]; then timeout -s INT "$secs" pw-record -P \'{ stream.capture.sink=true }\' "$f" >/dev/null 2>&1',
@@ -119,7 +132,7 @@ BarWidget {
             if (lines[i].indexOf("@@ERR ") === 0) err = lines[i].slice(6)
         if (lines.indexOf("@@OK") < 0) { fail(err || "recording failed"); scheduleNext(); return }
         phase = "identifying"
-        recogProc.command = ["sh", "-c", 'songrec audio-file-to-recognized-song "$1"; rm -f "$1"', "sh", capturePath]
+        recogProc.command = ["sh", "-c", 'songrec audio-file-to-recognized-song "$1"; rm -f -- "$1"', "sh", capturePath]
         recogProc.running = true
     }
 
@@ -252,9 +265,12 @@ BarWidget {
         onLoadFailed: root.favourites = []
     }
 
+    // The history and favourites folder is yours alone (0700). At start, a clip left
+    // behind by a crash, and the clip of Omatune 1.1 and before, are removed.
     Process {
         id: mkDirs
-        command: ["mkdir", "-p", root.stateDir]
+        command: ["sh", "-c", 'umask 077; mkdir -p -m 700 -- "$1" && [ ! -L "$1" ] && chmod 700 -- "$1"; rm -f -- "$2" "$3"',
+                  "sh", root.stateDir, root.capturePath, root.cacheDir + "/capture.wav"]
         onExited: { historyFile.reload(); favFile.reload() }
     }
     FileView {

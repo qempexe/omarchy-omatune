@@ -105,6 +105,29 @@ t("the window border is read from the theme's files", () => {
     assert.deepStrictEqual(T.parseBorder("").colors, []);
 });
 
+t("the clip is recorded privately, never through a link", () => {
+    const os = require("os"), cp = require("child_process");
+    const qml = fs.readFileSync(path.join(root, "qml", "BarWidget.qml"), "utf8");
+    const a = qml.indexOf("captureScript: [") + 15, b = qml.indexOf("].join(\"\\n\")", a);
+    const script = eval(qml.slice(a, b + 1)).join("\n");
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "omatune-"));
+    fs.mkdirSync(path.join(tmp, "bin"));
+    fs.writeFileSync(path.join(tmp, "bin", "pw-record"), "#!/bin/sh\nfor a; do f=\"$a\"; done; echo RIFF > \"$f\"\n", { mode: 0o755 });
+    fs.writeFileSync(path.join(tmp, "bin", "songrec"), "#!/bin/sh\n", { mode: 0o755 });
+    const env = Object.assign({}, process.env, { PATH: path.join(tmp, "bin") + ":" + process.env.PATH });
+    const run = (f) => cp.execFileSync("sh", ["-c", "umask 022; " + script, "sh", f, "system", "1"], { env, encoding: "utf8" });
+    const cache = path.join(tmp, "omatune");
+    fs.mkdirSync(cache, { mode: 0o755 });          // left by an older version
+    const clip = path.join(cache, "capture", "clip.wav");
+    assert.ok(run(clip).includes("@@OK"));
+    const mode = (p) => fs.statSync(p).mode & 0o777;
+    assert.deepStrictEqual([mode(cache), mode(path.dirname(clip)), mode(clip)], [0o700, 0o700, 0o600]);
+    fs.rmSync(path.dirname(clip), { recursive: true });
+    fs.symlinkSync(os.tmpdir(), path.dirname(clip));
+    assert.ok(run(clip).includes("@@ERR"), "a link is refused");
+    fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 t("covers are fetched over https only, with limits, and shrunk in a capped process", () => {
     assert.ok(A.isCover("https://is1-ssl.mzstatic.com/a.jpg"));
     for (const bad of ["http://a/b", "file:///etc/passwd", "https://a/b c", "", "https://" + "a".repeat(3000)]) assert.ok(!A.isCover(bad), bad);

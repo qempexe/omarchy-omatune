@@ -149,7 +149,8 @@ Item {
 
     Process {
         id: mkdir
-        command: ["mkdir", "-p", root.stateDir]
+        // the settings folder is yours alone (0700)
+        command: ["sh", "-c", 'umask 077; mkdir -p -m 700 -- "$1" && [ ! -L "$1" ] && chmod 700 -- "$1"', "sh", root.stateDir]
         onExited: file.reload()
     }
 
