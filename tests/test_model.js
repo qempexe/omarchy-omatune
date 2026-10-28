@@ -1,13 +1,14 @@
 // node tests/test_model.js
-// The pure logic (Model.js, Settings.js, Art.js) and the manifest, without Qt.
+// The pure logic (Model.js, Schema.js, Theme.js, Art.js) and the manifest, without Qt.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
 const load = (file, names) => new Function(fs.readFileSync(path.join(root, "qml", "js", file), "utf8")
     .replace(/^\.pragma.*$/m, "") + "; return { " + names.join(", ") + " };")();
 
 const M = load("Model.js", ["str", "safeUrl", "plain", "parseRecognition", "statusText", "historyPush", "songKey",
-    "isFavourite", "toggleFavourite", "cleanSongs", "resolveColors", "normalizeSettings", "parseOmarchyTheme", "themeSlug"]);
-const S = load("Settings.js", ["SCHEMA", "GROUPS", "realSettings", "defaults"]);
+    "isFavourite", "toggleFavourite", "cleanSongs"]);
+const S = load("Schema.js", ["groups", "settingKeys", "defaults", "resolve", "clean", "isHex"]);
+const T = load("Theme.js", ["parseBorder", "parsePalette"]);
 const A = load("Art.js", ["isCover", "nameOf", "isName", "curlArgs", "thumbArgs", "MAX_BYTES"]);
 
 let n = 0;
@@ -58,29 +59,41 @@ t("songs read back from disk are cleaned", () => {
     assert.deepStrictEqual(M.cleanSongs({ title: "x" }, 5), []);
 });
 
-t("custom colours are used exactly as picked", () => {
-    const cfg = { theme: "custom", customBackground: "#e0def4", customText: "#f8f8f2", customAccent: "#ffffff" };
-    assert.deepStrictEqual(M.resolveColors(cfg, null), { background: "#e0def4", text: "#f8f8f2", accent: "#ffffff" });
-    assert.strictEqual(M.resolveColors({ theme: "custom", customBackground: "nope" }, null).background, "#141414");
-    assert.strictEqual(M.resolveColors({ theme: "mono" }, null).accent, "#aaaaaa");
+t("custom colours are kept exactly as picked", () => {
+    const c = S.resolve({ colorMode: "custom", customBg: "#E0DEF4", customFg: "#f8f8f2", accentColor: "#ffffff" }, {});
+    assert.deepStrictEqual([c.colorMode, c.customBg, c.customFg, c.accentColor], ["custom", "#e0def4", "#f8f8f2", "#ffffff"]);
+    assert.strictEqual(S.resolve({ customBg: "nope" }, {}).customBg, "#141414");
 });
 
 t("settings are clamped to what the schema allows", () => {
-    const c = M.normalizeSettings({ duration: 99, theme: "pink", notify: "false", barIcon: "<b>" }, S.SCHEMA);
+    const c = S.resolve({ duration: 99, colorMode: "pink", notify: "false", barIcon: "<b>", windowWidth: "5000" }, {});
     assert.strictEqual(c.duration, 20);
-    assert.strictEqual(c.theme, "follow");
+    assert.strictEqual(c.colorMode, "theme");
     assert.strictEqual(c.notify, false);
-    assert.strictEqual(c.barIcon, "<b>");
-    assert.strictEqual(c.customPalette, undefined);
-    assert.deepStrictEqual(Object.keys(S.defaults()).sort(), S.realSettings().map((d) => d.key).sort());
-    for (const d of S.SCHEMA) assert.ok(S.GROUPS.indexOf(d.group) >= 0, d.key + " is in a group");
+    assert.strictEqual(c.barIcon, "b");
+    assert.strictEqual(c.windowWidth, 1200);
+    assert.deepStrictEqual(Object.keys(c).sort(), S.settingKeys.slice().sort());
+    assert.deepStrictEqual(S.resolve({}, {}), S.defaults);
 });
 
-t("the Omarchy theme is read from colors.toml", () => {
-    const th = M.parseOmarchyTheme("@@NAME Tokyo Night\n@@FILE colors.toml\nbackground = \"#1a1b26\"\nforeground = \"#c0caf5\"\naccent = \"#7aa2f7\"\n");
-    assert.deepStrictEqual([th.background, th.text, th.accent, th.name], ["#1a1b26", "#c0caf5", "#7aa2f7", "Tokyo Night"]);
-    assert.strictEqual(M.parseOmarchyTheme(""), null);
-    assert.strictEqual(M.themeSlug("Tokyo_Night"), "tokyo-night");
+t("the settings file wins over the bar's settings", () => {
+    assert.strictEqual(S.resolve({ duration: 7 }, { duration: 9 }).duration, 7);
+    assert.strictEqual(S.resolve({}, { duration: 9 }).duration, 9);
+});
+
+t("settings saved by 1.1 still apply", () => {
+    const c = S.resolve({ theme: "custom", customBackground: "#101010", customText: "#fafafa", customAccent: "#ff0000", barShowResult: false }, {});
+    assert.deepStrictEqual([c.colorMode, c.customBg, c.customFg, c.accentColor, c.barDisplay], ["custom", "#101010", "#fafafa", "#ff0000", "icon"]);
+    assert.strictEqual(S.resolve({ theme: "mono" }, {}).colorMode, "monochrome");
+    assert.strictEqual(S.resolve({ theme: "follow", colorMode: "borders" }, {}).colorMode, "borders");
+});
+
+t("the window border is read from the theme's files", () => {
+    const lua = T.parseBorder('local active_border_color = { colors = { "rgba(1ee9d6ee)", "rgba(fe4fb6ee)" }, angle = 45 }');
+    assert.deepStrictEqual(lua, { colors: ["#1ee9d6", "#fe4fb6"], angle: 45 });
+    const conf = T.parseBorder("col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg");
+    assert.deepStrictEqual(conf.colors, ["#33ccff", "#00ff99"]);
+    assert.deepStrictEqual(T.parseBorder("").colors, []);
 });
 
 t("covers are fetched over https only, with limits, and shrunk in a capped process", () => {
@@ -98,11 +111,11 @@ t("covers are fetched over https only, with limits, and shrunk in a capped proce
     assert.strictEqual(A.thumbArgs("/c/a[x].img", "/c/" + name + ".png"), null);
 });
 
-t("manifest matches Settings.js", () => {
+t("manifest matches Schema.js", () => {
     const m = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
     assert.strictEqual(m.id, "io.github.qempexe.omatune");
-    assert.deepStrictEqual(m.barWidget.schema.map((e) => e.key), S.realSettings().map((d) => d.key));
-    assert.deepStrictEqual(m.barWidget.defaults, S.defaults());
+    assert.deepStrictEqual(m.barWidget.schema.map((e) => e.key), S.settingKeys);
+    assert.deepStrictEqual(m.barWidget.defaults, S.defaults);
     assert.ok(fs.existsSync(path.join(root, m.entryPoints.barWidget)));
 });
 

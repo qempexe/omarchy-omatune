@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Omatune",
-    "description": "Song recognition with theme, notification and history settings",
+    "description": "Song recognition with color, window, notification and history settings",
     "category": "Media",
     "aliases": [
       "songrec",
@@ -27,66 +27,209 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "theme": "follow",
-      "customBackground": "#141414",
-      "customText": "#e0e0e0",
-      "customAccent": "#d4a35a",
-      "barIcon": "♪",
-      "barShowResult": true,
+      "colorMode": "theme",
+      "customBg": "#141414",
+      "customFg": "#e0e0e0",
+      "accentColor": "#d4a35a",
+      "textColor": "auto",
+      "cardStyle": "soft",
+      "density": "comfortable",
+      "cornerRadius": 4,
+      "fontScale": 100,
+      "showCover": true,
+      "windowWidth": 520,
+      "windowHeight": 600,
+      "openAs": "panel",
+      "frame": false,
+      "frameGradient": true,
+      "frameColor": "accent",
+      "surfaceTint": 0,
+      "opacity": 97,
       "source": "system",
       "duration": 5,
       "notify": true,
       "notifyCover": true,
       "notifyTimeout": 8,
-      "historySize": 20
+      "historySize": 20,
+      "barDisplay": "both",
+      "barIcon": "♪",
+      "middleClick": "history"
     },
     "schema": [
       {
-        "key": "theme",
+        "key": "colorMode",
         "type": "enum",
-        "label": "Theme",
-        "defaultValue": "follow",
-        "description": "Follow Omarchy changes the moment you switch Omarchy's theme. Custom lets you choose every colour. Monochrome is plain grey.",
+        "label": "Colors",
+        "defaultValue": "theme",
+        "description": "Follow theme matches your Omarchy theme live. Window borders takes the accent from your theme's window border. Custom lets you choose the background, text and accent. Monochrome removes every hue.",
         "options": [
-          "follow",
+          "theme",
+          "borders",
           "custom",
-          "mono"
+          "monochrome"
         ]
       },
       {
-        "key": "customBackground",
+        "key": "customBg",
         "type": "string",
         "label": "Custom background",
         "defaultValue": "#141414",
-        "description": "Background colour used with the Custom theme."
+        "description": "Background, text and accent, used exactly as you pick them. A #rrggbb color, used when Colors is Custom."
       },
       {
-        "key": "customText",
+        "key": "customFg",
         "type": "string",
         "label": "Custom text",
         "defaultValue": "#e0e0e0",
-        "description": "Text colour used with the Custom theme."
+        "description": "Background, text and accent, used exactly as you pick them. A #rrggbb color, used when Colors is Custom."
       },
       {
-        "key": "customAccent",
+        "key": "accentColor",
         "type": "string",
         "label": "Custom accent",
         "defaultValue": "#d4a35a",
-        "description": "Accent colour used with the Custom theme."
+        "description": "Background, text and accent, used exactly as you pick them. A #rrggbb color, used when Colors is Custom."
       },
       {
-        "key": "barIcon",
-        "type": "string",
-        "label": "Bar icon",
-        "defaultValue": "♪",
-        "description": "Up to 8 characters shown on the bar."
+        "key": "textColor",
+        "type": "enum",
+        "label": "Text",
+        "defaultValue": "auto",
+        "description": "Always readable keeps your theme's text color, and switches to black or white when the window is too light or too dark for it. My text color uses the Text color from Custom colors. Custom colors always use their own text color.",
+        "options": [
+          "auto",
+          "theme",
+          "custom"
+        ]
       },
       {
-        "key": "barShowResult",
+        "key": "cardStyle",
+        "type": "enum",
+        "label": "Card style",
+        "defaultValue": "soft",
+        "description": "Soft fills cards lightly, outline draws a border only, flat has neither.",
+        "options": [
+          "soft",
+          "outline",
+          "flat"
+        ]
+      },
+      {
+        "key": "density",
+        "type": "enum",
+        "label": "Spacing",
+        "defaultValue": "comfortable",
+        "description": "How much air there is between things.",
+        "options": [
+          "compact",
+          "comfortable",
+          "spacious"
+        ]
+      },
+      {
+        "key": "cornerRadius",
+        "type": "integer",
+        "label": "Roundness",
+        "defaultValue": 4,
+        "description": "0 is square, 20 is very round.",
+        "min": 0,
+        "max": 20,
+        "step": 2
+      },
+      {
+        "key": "fontScale",
+        "type": "integer",
+        "label": "Text size",
+        "defaultValue": 100,
+        "description": "1 is normal, 1.25 is a quarter bigger.",
+        "min": 80,
+        "max": 150,
+        "step": 5
+      },
+      {
+        "key": "showCover",
         "type": "boolean",
-        "label": "Show last song on the bar",
+        "label": "Show the cover",
         "defaultValue": true,
-        "description": "Show the last song found next to the icon."
+        "description": "The last song's cover in the Listen tab."
+      },
+      {
+        "key": "windowWidth",
+        "type": "integer",
+        "label": "Window width",
+        "defaultValue": 520,
+        "description": "How wide Omatune opens.",
+        "min": 400,
+        "max": 1200,
+        "step": 20
+      },
+      {
+        "key": "windowHeight",
+        "type": "integer",
+        "label": "Window height",
+        "defaultValue": 600,
+        "description": "How tall Omatune opens.",
+        "min": 420,
+        "max": 1100,
+        "step": 20
+      },
+      {
+        "key": "openAs",
+        "type": "enum",
+        "label": "Open as",
+        "defaultValue": "panel",
+        "description": "Where the bar button opens Omatune. You can always pop it out or dock it back from the header.",
+        "options": [
+          "panel",
+          "window"
+        ]
+      },
+      {
+        "key": "frame",
+        "type": "boolean",
+        "label": "Window outline",
+        "defaultValue": false,
+        "description": "Draw the edge in your window border's colors instead of a plain neutral line."
+      },
+      {
+        "key": "frameGradient",
+        "type": "boolean",
+        "label": "Outline gradient",
+        "defaultValue": true,
+        "description": "Use the window border's whole gradient, at its angle, when it has more than one color."
+      },
+      {
+        "key": "frameColor",
+        "type": "enum",
+        "label": "Outline color",
+        "defaultValue": "accent",
+        "description": "The one color the outline takes when it isn't a gradient.",
+        "options": [
+          "accent",
+          "first",
+          "middle",
+          "last"
+        ]
+      },
+      {
+        "key": "surfaceTint",
+        "type": "integer",
+        "label": "Window tint",
+        "defaultValue": 0,
+        "description": "How much of the accent washes over the background. 0 keeps it plain.",
+        "min": 0,
+        "max": 30,
+        "step": 2
+      },
+      {
+        "key": "opacity",
+        "type": "integer",
+        "label": "Window opacity",
+        "defaultValue": 97,
+        "description": "100 is solid.",
+        "min": 50,
+        "max": 100,
+        "step": 1
       },
       {
         "key": "source",
@@ -104,7 +247,7 @@
         "type": "integer",
         "label": "Listen length",
         "defaultValue": 5,
-        "description": "How long to record before identifying. 4 to 6 seconds is usually enough; longer is slower but more reliable in noisy rooms.",
+        "description": "Seconds to record before identifying. 4 to 6 is usually enough; longer is slower but finds more in noisy rooms.",
         "min": 4,
         "max": 20,
         "step": 1
@@ -114,21 +257,21 @@
         "type": "boolean",
         "label": "Notify when a song is found",
         "defaultValue": true,
-        "description": "Send a desktop notification with the song title and artist."
+        "description": "A desktop notification with the title and the artist."
       },
       {
         "key": "notifyCover",
         "type": "boolean",
-        "label": "Cover photo in notification",
+        "label": "Cover in the notification",
         "defaultValue": true,
-        "description": "Include the album cover when one is available."
+        "description": "The album cover as the notification's picture, when there is one."
       },
       {
         "key": "notifyTimeout",
         "type": "integer",
         "label": "Notification time",
         "defaultValue": 8,
-        "description": "How long the notification stays on screen.",
+        "description": "Seconds the notification stays on screen.",
         "min": 2,
         "max": 30,
         "step": 1
@@ -138,10 +281,41 @@
         "type": "integer",
         "label": "Songs to keep",
         "defaultValue": 20,
-        "description": "How many songs the History tab remembers.",
+        "description": "How many songs the History tab remembers. Favourites are kept apart and don't count.",
         "min": 5,
         "max": 100,
         "step": 5
+      },
+      {
+        "key": "barDisplay",
+        "type": "enum",
+        "label": "Bar button shows",
+        "defaultValue": "both",
+        "description": "While listening it always shows the countdown.",
+        "options": [
+          "icon",
+          "song",
+          "both"
+        ]
+      },
+      {
+        "key": "barIcon",
+        "type": "string",
+        "label": "Bar icon",
+        "defaultValue": "♪",
+        "description": "Up to 8 characters."
+      },
+      {
+        "key": "middleClick",
+        "type": "enum",
+        "label": "Middle click",
+        "defaultValue": "history",
+        "description": "What clicking the bar button with the middle mouse button does.",
+        "options": [
+          "history",
+          "listen",
+          "none"
+        ]
       }
     ]
   }

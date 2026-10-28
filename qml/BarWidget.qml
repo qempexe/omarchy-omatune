@@ -5,28 +5,33 @@ import qs.Commons
 import qs.Ui
 import "core"
 import "js/Model.js" as Model
-import "js/Settings.js" as Settings
+import "js/Schema.js" as Schema
+import "js/Theme.js" as Theme
 
 // Omatune: click the bar to record a few seconds, identify the song with SongRec,
 // then show it in a notification (with cover), on the bar and in the history.
+//
+// This file is also the "service" the window talks to (`ui.service`): the song,
+// the history and favourites, opening links, the capped clipboard read, the
+// manifest, and the theme's window border.
 BarWidget {
     id: root
     moduleName: "io.github.qempexe.omatune"
 
-    // settings: local overrides win over `omarchy bar set` (see SettingsStore.qml)
+    // ---- settings ------------------------------------------------------------------
+    // Local overrides (Settings tab, see SettingsStore.qml) win over `omarchy bar set`.
+    // Every key read here is declared in manifest.json (tools/gen-manifest.js).
     SettingsStore { id: settingsStore }
 
-    function buildRaw(v) {
-        const raw = {}, rows = Settings.realSettings()
-        for (let i = 0; i < rows.length; i++) {
-            const d = rows[i]
-            raw[d.key] = v[d.key] !== undefined ? v[d.key] : setting(d.key, d.defaultValue)
+    function shellValues() {
+        const out = {}
+        for (const k of Schema.settingKeys) {
+            const v = setting(k, undefined)
+            if (v !== undefined && v !== null) out[k] = v
         }
-        return raw
+        return out
     }
-    readonly property var cfg: Model.normalizeSettings(buildRaw(settingsStore.values), Settings.SCHEMA)
-    readonly property string themeChoice: cfg.theme
-
+    readonly property var cfg: Schema.resolve(settingsStore.values, shellValues())
     function setValue(key, value) { settingsStore.set(key, value) }
 
     // paths (outside the plugin folder, so hot-reload never restarts the bar)
@@ -34,7 +39,6 @@ BarWidget {
     readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state") + "/omatune"
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/omatune"
     readonly property string capturePath: cacheDir + "/capture.wav"
-    readonly property string omarchyConfig: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/omarchy"
 
     // ── recording state ──
     property string phase: "idle"          // idle | listening | identifying | error
@@ -44,19 +48,18 @@ BarWidget {
     property bool continuous: false        // keep identifying one song after another until switched off
     property var history: []
     property var pending: null             // song waiting for its notification cover
-    property var omarchy: null             // live Omarchy theme, or null
-
-    readonly property var colors: Model.resolveColors(cfg, omarchy)
 
     readonly property string barLabel: {
         if (phase === "listening") return secondsLeft + " s"
         if (phase === "identifying") return "…"
         if (phase === "error") return "no match"
-        return cfg.barShowResult && last ? last.title : ""
+        return last ? last.title : ""
     }
 
     function tooltip() {
-        const lines = ["Omatune: left click to listen, middle click for history, right click for settings."]
+        const middle = cfg.middleClick === "listen" ? ", middle click to listen now"
+                     : (cfg.middleClick === "history" ? ", middle click for history" : "")
+        const lines = ["Omatune: left click to open" + middle + ", right click for settings."]
         if (last) lines.push("Last: " + last.title + (last.artist ? " — " + last.artist : ""))
         return lines.map(l => Model.plain(l)).join("\n")
     }
@@ -214,6 +217,7 @@ BarWidget {
         openProc.running = true
     }
     Process { id: openProc }
+    function openUrl(url) { openLink(url) }
 
     // history on disk
     function loadHistory(text) {
@@ -260,173 +264,348 @@ BarWidget {
         onLoadFailed: root.history = []
     }
 
-    // Omarchy theme: read the active theme's files, follow every change
-    // Reads <omarchy>/current/theme (or the named theme's folder) with one short shell script.
-    // It is re-run when current/theme.name changes, shortly after that (the swap is not atomic),
-    // on a slow poll while following, and when the choice switches to "Follow Omarchy".
-    readonly property var themeScriptArgs: [omarchyConfig + "/current", omarchyConfig]
-    readonly property string themeScript: [
-        'd="$1"; cfg="$2"; n=""',
-        '[ -r "$d/theme.name" ] && n=$(tr -d "\r\n" < "$d/theme.name")',
-        '[ -z "$n" ] && n=$(omarchy-theme-current 2>/dev/null)',
-        'n=$(printf %s "$n" | tr "A-Z " "a-z-")',
-        'echo "@@NAME $n"',
-        'found=0',
-        'for t in "$d/theme" "$cfg/themes/$n"; do',
-        '  [ "$found" = 1 ] && break',
-        '  [ -d "$t" ] || continue',
-        '  for f in colors.toml alacritty.toml kitty.conf; do',
-        '    if [ -r "$t/$f" ]; then echo "@@FILE $f"; cat "$t/$f"; echo; found=1; fi',
-        '  done',
-        'done',
-        '# no current theme folder: dump every installed theme; QML picks the one matching the shell',
-        'if [ "$found" = 0 ]; then',
-        '  for t in "$cfg"/themes/*; do',
-        '    [ -d "$t" ] || continue',
-        '    for f in colors.toml alacritty.toml kitty.conf; do',
-        '      if [ -r "$t/$f" ]; then echo "@@THEME $(basename "$t")"; echo "@@FILE $f"; cat "$t/$f"; echo; break; fi',
-        '    done',
-        '  done',
-        'fi',
-        'exit 0'
-    ].join("\n")
 
-    // What the reader found, shown under the theme choice in Settings.
-    property string omarchyNote: "Looking for your Omarchy theme…"
-
-    function refreshTheme() { if (!themeProc.running) themeProc.running = true }
-
-    // The shell's bar colour, passed in by Panel: used to find the installed theme that matches it.
-    property var shellBg: null
-    property string lastThemeText: ""
-    function hexOf(c) {
-        function h(v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2) }
-        return "#" + h(c.r) + h(c.g) + h(c.b)
-    }
-    onShellBgChanged: if (lastThemeText.indexOf("@@THEME") >= 0) themeRead(lastThemeText)
-
-    function themeRead(text) {
-        lastThemeText = String(text || "")
-        let t = null
-        if (lastThemeText.indexOf("@@THEME") >= 0) {
-            const installed = Model.parseOmarchyThemes(lastThemeText)
-            const named = /^@@NAME[ \t]*(.*)$/m.exec(lastThemeText)
-            const want = named ? Model.themeSlug(named[1]) : ""
-            // 1) the theme Omarchy reports as active: found by name, so it works in light and dark alike
-            for (let i = 0; i < installed.length && !t; i++)
-                if (want && Model.themeSlug(installed[i].name) === want) t = installed[i]
-            // 2) otherwise the installed theme nearest the shell's bar colour, when that colour is known
-            if (!t && shellBg !== null && shellBg !== undefined) {
-                const best = Model.closestTheme(installed, hexOf(shellBg))
-                t = best && best.dist < 0.012 ? best.theme : null
-            }
-        } else {
-            t = Model.parseOmarchyTheme(lastThemeText)
+    // ---- the plugin's own manifest (the About tab shows its version) ----------------
+    property var manifest: null
+    FileView {
+        id: manifestFile
+        path: decodeURIComponent(Qt.resolvedUrl("../manifest.json").toString().replace(/^file:\/\//, ""))
+        onLoaded: {
+            let m = null
+            try { m = JSON.parse(root.readText(manifestFile)) } catch (e) { m = null }
+            const v = m && typeof m.version === "string" && /^[0-9A-Za-z.+-]{1,32}$/.test(m.version) ? m.version : ""
+            root.manifest = { version: v }
         }
-        omarchy = t
-        omarchyNote = t
-            ? "Following “" + (t.name || "your current theme") + "”."
-            : "Using the shell's own colours."
+    }
+    function readText(fv) {
+        try { return String(typeof fv.text === "function" ? fv.text() : fv.text) } catch (e) { return "" }
     }
 
-    Process {
-        id: themeProc
-        command: ["sh", "-c", root.themeScript, "sh", root.themeScriptArgs[0], root.themeScriptArgs[1]]
-        stdout: StdioCollector { onStreamFinished: root.themeRead(text) }
+    // ---- the theme's window border ----------------------------------------------------
+    // For the Window borders color scheme and the window outline: the active border's
+    // colors and angle, from the theme's hyprland.lua (or .conf, or the line some themes
+    // keep in colors.toml). Only #rrggbb values and an angle are taken from these files.
+    property var tomlBorder: ({ colors: [], angle: 0 })
+    property var luaBorder: ({ colors: [], angle: 0 })
+    property var confBorder: ({ colors: [], angle: 0 })
+    property bool luaMissing: false
+    readonly property var borderColors: luaBorder.colors.length > 0 ? luaBorder.colors
+        : (confBorder.colors.length > 0 ? confBorder.colors : tomlBorder.colors)
+    readonly property real borderAngle: luaBorder.colors.length > 0 ? luaBorder.angle
+        : (confBorder.colors.length > 0 ? confBorder.angle : tomlBorder.angle)
+    readonly property string themeDir: {
+        try { return Color.currentThemePath ? String(Color.currentThemePath) : "" } catch (e) { return "" }
+    }
+
+    FileView {
+        id: paletteFile
+        path: root.themeDir !== "" ? root.themeDir + "/colors.toml" : ""
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.tomlBorder = Theme.parseBorder(root.readText(paletteFile))
+        onLoadFailed: { root.tomlBorder = ({ colors: [], angle: 0 }); root.retryTheme() }
     }
     FileView {
-        id: themeNameFile
-        path: root.omarchyConfig + "/current/theme.name"
+        id: borderLua
+        path: root.themeDir !== "" ? root.themeDir + "/hyprland.lua" : ""
         watchChanges: true
-        onFileChanged: { reload(); root.refreshTheme(); themeSettle.restart() }
+        onFileChanged: reload()
+        onLoaded: { root.luaMissing = false; root.luaBorder = Theme.parseBorder(root.readText(borderLua)) }
+        onLoadFailed: { root.luaBorder = ({ colors: [], angle: 0 }); root.luaMissing = true }
     }
-    Timer { id: themeSettle; interval: 600; onTriggered: root.refreshTheme() }
+    FileView {
+        id: borderConf
+        // only looked at when the theme has no hyprland.lua
+        path: root.themeDir !== "" && root.luaMissing ? root.themeDir + "/hyprland.conf" : ""
+        watchChanges: true
+        onFileChanged: reload()
+        onPathChanged: if (path === "") root.confBorder = ({ colors: [], angle: 0 })
+        onLoaded: root.confBorder = Theme.parseBorder(root.readText(borderConf))
+        onLoadFailed: root.confBorder = ({ colors: [], angle: 0 })
+    }
+    // A theme switch replaces the theme folder, so for a moment the files are gone and
+    // the watch can lose track of them: read them again shortly after, a few times at most.
+    property int themeTries: 0
+    function retryTheme() { if (themeTries < 3) { themeTries++; themeRetry.restart() } }
     Timer {
-        interval: 2000
-        repeat: true
-        running: root.cfg.theme === "follow"
-        onTriggered: root.refreshTheme()
+        id: themeRetry
+        interval: 800
+        onTriggered: { paletteFile.reload(); borderLua.reload(); borderConf.reload() }
     }
-    onThemeChoiceChanged: if (themeChoice === "follow") refreshTheme()
-    Component.onCompleted: { mkDirs.running = true; refreshTheme(); recheckRecognizer() }
+    Connections {
+        target: Color
+        ignoreUnknownSignals: true
+        function onAccentChanged() { root.themeTries = 0; themeRetry.restart() }
+        function onBackgroundChanged() { root.themeTries = 0; themeRetry.restart() }
+    }
 
-    // ── popup host: Panel.qml is its own window, settings popup ──
+    // ---- clipboard paste (capped, no shell) -------------------------------------------
+    // Pasting into the search box never reads the clipboard on the UI thread. wl-paste
+    // runs directly (no shell) and its output is read in chunks. Reading stops as soon
+    // as 1024 bytes are in, or after 2 seconds, and the process is stopped. The text is
+    // then sent back through `pasted`, addressed to the field that asked.
+    property string pasteKey: ""
+    property string pasteBuf: ""
+    readonly property int pasteMax: 1024
+    signal pasted(string key, string text)
+
+    function requestPaste(key) {
+        if (pasteKey !== "" || pasteProc.running) return   // one paste at a time
+        pasteKey = key
+        pasteBuf = ""
+        pasteProc.running = true
+        pasteKill.restart()
+    }
+    function finishPaste() {
+        const k = pasteKey
+        if (k === "") return                              // already delivered
+        pasteKey = ""
+        pasteKill.stop()
+        const text = pasteBuf.slice(0, pasteMax)
+        pasteBuf = ""
+        if (pasteProc.running) pasteProc.running = false  // stop reading the clipboard
+        root.pasted(k, text)
+    }
+    Timer { id: pasteKill; interval: 2000; onTriggered: root.finishPaste() }
+    Process {
+        id: pasteProc
+        running: false
+        command: ["wl-paste", "--no-newline"]
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (root.pasteBuf.length >= root.pasteMax) return
+                root.pasteBuf += data
+                if (root.pasteBuf.length >= root.pasteMax) root.finishPaste()
+            }
+        }
+        onExited: root.finishPaste()
+    }
+
+    Component.onCompleted: { mkDirs.running = true; recheckRecognizer() }
+
+    // ---- the window: docked to the bar, or popped out ----------------------------------
+    // One UiState feeds whichever surface is showing, so the tab, the search and the
+    // history filter survive popping out and docking back.
+    property bool popped: false
+    // Set only by the header's Pop out / Dock buttons. Until then "Open as" decides
+    // how the bar button opens, every time, so a change in settings takes effect at once.
+    property bool userPicked: false
+
+    // The bar's own colours. Fall back to the shell palette if the bar does not expose them.
+    readonly property color barFg: (root.bar && root.bar.barForeground !== undefined)
+        ? root.bar.barForeground : (Color.foreground !== undefined ? Color.foreground : "white")
+    readonly property color barBg: (root.bar && root.bar.barBackground !== undefined)
+        ? root.bar.barBackground : (Color.background !== undefined ? Color.background : "#121217")
+
+    // The shell theme's accent, tried under a few likely names. Unknown names are
+    // skipped, and with none found the window falls back to the bar foreground.
+    function themeColor(names) {
+        for (const name of names) {
+            let raw
+            try { raw = Color[name] } catch (e) { raw = undefined }
+            if (raw === undefined || raw === null) continue
+            try {
+                const c = Qt.color(raw)
+                if (c && c.valid !== false) return c
+            } catch (e2) { }
+        }
+        return null
+    }
+    readonly property var shellAccent: themeColor(["accent", "primary", "highlight", "accentColor", "color4", "blue"])
+
+    UiState {
+        id: ux
+        service: root
+        themeAccent: root.shellAccent ? root.shellAccent : "transparent"
+        store: settingsStore
+        cfg: root.cfg
+        opened: root.panelOpened || root.windowShown
+        popped: root.popped
+        barFg: root.barFg
+        barBg: root.barBg
+        fontName: root.bar && root.bar.fontFamily ? root.bar.fontFamily : Style.font.family
+        onPopOutRequested: root.popOut()
+        onDockRequested: root.dock()
+        onCloseRequested: root.close()
+    }
+
+    readonly property bool panelOpened: panelLoader.item ? panelLoader.item.opened === true : false
+    readonly property bool windowShown: windowLoader.item ? windowLoader.item.visible === true : false
+
+    // The shell only knows about the bar-panel state.
+    readonly property bool opened: panelOpened
+    readonly property bool popoutSwitchClosing: panelLoader.item
+        ? panelLoader.item.popoutSwitchClosing === true : false
+
+    // Until the header's buttons are used, "Open as" decides.
+    function chooseMode() {
+        if (userPicked) return
+        const want = cfg.openAs === "window"
+        if (want === popped) return
+        if (windowShown) hideWindow()
+        if (panelOpened) closePanel()
+        popped = want
+    }
+
+    // The window exists exactly while it is wanted. Showing it again after it was
+    // closed (by the header, or by the window manager) always creates a fresh one,
+    // so a dead window handle can never leave the bar button doing nothing.
+    property bool windowRequested: false
+    function showWindow() {
+        windowRequested = true
+        if (windowLoader.item) windowLoader.item.visible = true
+    }
+    function hideWindow() { windowRequested = false }
+
+    // The window manager closed the window while we still wanted it: forget it, so
+    // the next click on the bar button builds a new one.
+    Connections {
+        target: windowLoader.item
+        ignoreUnknownSignals: true
+        function onVisibleChanged() {
+            if (windowLoader.item && !windowLoader.item.visible && root.windowRequested)
+                root.windowRequested = false
+        }
+    }
+
+    // If the bar panel cannot be shown (Panel.qml failed to load, or the shell never
+    // reported it open), show Omatune as its own window instead of doing nothing.
+    // The reason goes to the shell log (`qs log`).
+    property bool wantPanel: false
+    function fallbackToWindow(reason) {
+        console.warn("Omatune: " + reason + "; opening as a window instead")
+        wantPanel = false
+        panelCheck.stop()
+        popped = true
+        showWindow()
+    }
+    function openPanel() {
+        if (panelLoader.status === Loader.Error || !panelLoader.item) {
+            fallbackToWindow("Panel.qml is not loaded (status " + panelLoader.status + ")")
+            return
+        }
+        injectPanel()
+        wantPanel = true
+        panelLoader.item.open()
+        panelCheck.restart()
+    }
+    function closePanel() {
+        wantPanel = false
+        panelCheck.stop()
+        if (panelLoader.item) panelLoader.item.close()
+    }
+    function open() {
+        chooseMode()
+        if (popped) showWindow()
+        else openPanel()
+    }
+    function close() {
+        closePanel()
+        hideWindow()
+    }
+    function toggle() {
+        chooseMode()
+        if (popped) {
+            if (windowShown) hideWindow()
+            else showWindow()
+        } else if (panelOpened) {
+            closePanel()
+        } else if (!(panelLoader.item && panelLoader.item.justClosedByGrab === true)) {
+            openPanel()
+        }
+    }
+    function closeForPopoutSwitch() { if (panelLoader.item) panelLoader.item.closeForPopoutSwitch() }
+    function popOut() {
+        userPicked = true
+        popped = true
+        closePanel()
+        showWindow()
+    }
+    function dock() {
+        userPicked = true
+        hideWindow()
+        popped = false
+        Qt.callLater(root.openPanel)
+    }
+    onPanelOpenedChanged: if (panelOpened) { wantPanel = false; panelCheck.stop() }
+    Timer {
+        id: panelCheck
+        interval: 600
+        repeat: false
+        onTriggered: if (root.wantPanel && !root.panelOpened && !root.popped)
+            root.fallbackToWindow("the panel did not open")
+    }
+
+    // Open on a tab (or keep it open and switch to it).
+    function showTab(name) {
+        ux.tabName = name
+        open()
+    }
+
     function injectPanel() {
         if (!panelLoader.item) return
         panelLoader.item.bar = root.bar
         panelLoader.item.anchorItem = button
         panelLoader.item.hostWidget = root
-        panelLoader.item.widget = root
-        panelLoader.item.vertical = root.isVertical
-        if (fgProbe.item) fgProbe.item.bar = root.bar
-    }
-    readonly property bool isVertical: {
-        const b = root.bar
-        if (!b) return false
-        try { return b.vertical === true || b.isVertical === true } catch (e) { return false }
-    }
-    function togglePanel() { if (panelLoader.item) panelLoader.item.toggle() }
-
-    // Bar clicks: left opens Listen, middle opens History, right opens Settings.
-    // Only the X closes the panel.
-    //
-    // If the compositor dismissed the popup on click-outside, Panel's controller
-    // still believes it is showing, so a bare `show()` would be a no-op and the
-    // panel would never reappear. Closing first brings the controller back to a
-    // clean "hidden" state, then opening genuinely shows the panel again.
-    function openTab(tab) {
-        if (!panelLoader.item) return
-        panelLoader.item.currentTab = tab
-        if (panelLoader.item.opened)
-            panelLoader.item.close()
-        Qt.callLater(() => {
-            if (panelLoader.item)
-                panelLoader.item.open()
-        })
-    }
-    function openSettings() { openTab("settings") }
-
-    // Which tab a mouse button opens. Accepts Qt's button values or plain names.
-    function tabForButton(code) {
-        if (code === Qt.MiddleButton || code === "middle" || code === "MiddleButton") return "history"
-        if (code === Qt.RightButton || code === "right" || code === "RightButton") return "settings"
-        return "listen"
+        panelLoader.item.ui = ux
     }
 
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
     onBarChanged: injectPanel()
 
-    // Exposes the bar's own colours to the popup (see Foreground.qml).
-    Loader {
-        id: fgProbe
-        active: true
-        source: Qt.resolvedUrl("core/Foreground.qml")
-        visible: false
-        onLoaded: root.injectPanel()
-    }
-    Binding { target: panelLoader.item; property: "probeFg"; value: fgProbe.item ? fgProbe.item.barForeground : undefined; when: !!panelLoader.item && !!fgProbe.item }
-    Binding { target: panelLoader.item; property: "probeBg"; value: fgProbe.item ? fgProbe.item.barBackground : undefined; when: !!panelLoader.item && !!fgProbe.item }
-
     Loader {
         id: panelLoader
         active: true
         source: Qt.resolvedUrl("panel/Panel.qml")
-        visible: false
         onLoaded: {
             root.injectPanel()
             Qt.callLater(root.injectPanel)
         }
+        onStatusChanged: if (status === Loader.Error)
+            console.warn("Omatune: Panel.qml failed to load; run `qs log` for the QML error")
+    }
+
+    // A real, resizable, movable window. Only exists while popped out.
+    Loader {
+        id: windowLoader
+        active: root.windowRequested
+        source: Qt.resolvedUrl("panel/PopoutWindow.qml")
+        onLoaded: {
+            item.ui = ux
+            item.visible = root.windowRequested
+        }
+        onStatusChanged: if (status === Loader.Error)
+            console.warn("Omatune: PopoutWindow.qml failed to load; run `qs log` for the QML error")
+    }
+
+    // ---- the bar button --------------------------------------------------------------
+    // While listening it always shows the countdown; otherwise Bar button shows decides.
+    readonly property string buttonText: {
+        const icon = Model.plain(cfg.barIcon)
+        const busy = phase !== "idle"
+        const label = Model.plain(barLabel)
+        if (busy || cfg.barDisplay === "both") return label ? icon + " " + label : icon
+        if (cfg.barDisplay === "song") return label || icon
+        return icon
     }
 
     WidgetButton {
         id: button
         anchors.fill: parent
         bar: root.bar
-        text: Model.plain(root.cfg.barIcon) + (root.barLabel ? " " + Model.plain(root.barLabel) : "")
+        text: root.buttonText
         tooltipText: root.tooltip()
         onPressed: function(buttonCode) {
-            root.openTab(root.tabForButton(buttonCode))
+            if (buttonCode === Qt.RightButton || buttonCode === "right") root.showTab("settings")
+            else if (buttonCode === Qt.MiddleButton || buttonCode === "middle") {
+                if (root.cfg.middleClick === "history") root.showTab("history")
+                else if (root.cfg.middleClick === "listen") root.listen()
+            } else {
+                if (!root.opened && !root.windowShown) ux.tabName = "listen"
+                root.toggle()
+            }
         }
     }
 }
