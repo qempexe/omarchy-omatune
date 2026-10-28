@@ -21,7 +21,7 @@ Item {
 
     // the version, read from the plugin's own manifest
     FileView {
-        path: decodeURIComponent(Qt.resolvedUrl("manifest.json").toString().replace(/^file:\/\//, ""))
+        path: decodeURIComponent(Qt.resolvedUrl("../../manifest.json").toString().replace(/^file:\/\//, ""))
         onLoaded: {
             let v = ""
             try { v = String(JSON.parse(text()).version || "") } catch (e) { v = "" }
@@ -39,7 +39,7 @@ Item {
             Layout.preferredWidth: 96
             Layout.preferredHeight: 96
             // the light logo on a dark panel, the dark one on a light panel
-            source: Qt.resolvedUrl(root.lightSurface ? "assets/logo-dark.png" : "assets/logo.png")
+            source: Qt.resolvedUrl(root.lightSurface ? "../../assets/logo-dark.png" : "../../assets/logo.png")
             sourceSize.width: 192
             sourceSize.height: 192
             smooth: true

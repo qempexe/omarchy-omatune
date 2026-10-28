@@ -3,8 +3,9 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
-import "Model.js" as Model
-import "Settings.js" as Settings
+import "core"
+import "js/Model.js" as Model
+import "js/Settings.js" as Settings
 
 // Omatune: click the bar to record a few seconds, identify the song with SongRec,
 // then show it in a notification (with cover), on the bar and in the history.
@@ -400,7 +401,7 @@ BarWidget {
     Loader {
         id: fgProbe
         active: true
-        source: Qt.resolvedUrl("Foreground.qml")
+        source: Qt.resolvedUrl("core/Foreground.qml")
         visible: false
         onLoaded: root.injectPanel()
     }
@@ -410,7 +411,7 @@ BarWidget {
     Loader {
         id: panelLoader
         active: true
-        source: Qt.resolvedUrl("Panel.qml")
+        source: Qt.resolvedUrl("panel/Panel.qml")
         visible: false
         onLoaded: {
             root.injectPanel()

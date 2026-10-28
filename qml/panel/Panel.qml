@@ -5,8 +5,9 @@ import QtQuick.Layouts
 import Quickshell
 import qs.Commons
 import qs.Ui
-import "Model.js" as Model
-import "Settings.js" as Settings
+import "../controls"
+import "../js/Model.js" as Model
+import "../js/Settings.js" as Settings
 
 // Popup with four tabs: Listen (the last song), History, Settings (built from Settings.js) and About.
 PopupWindow {
@@ -356,7 +357,7 @@ PopupWindow {
                         Image {   // the logo, light or dark to suit the panel
                             anchors.centerIn: parent
                             width: 24; height: width
-                            source: Qt.resolvedUrl(root.luma(root.panelBg) > 0.5 ? "assets/logo-dark.png" : "assets/logo.png")
+                            source: Qt.resolvedUrl(root.luma(root.panelBg) > 0.5 ? "../../assets/logo-dark.png" : "../../assets/logo.png")
                             sourceSize.width: 96
                             sourceSize.height: 96
                             smooth: true

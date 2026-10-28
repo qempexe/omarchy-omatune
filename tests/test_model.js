@@ -2,7 +2,7 @@
 // The pure logic (Model.js, Settings.js, Art.js) and the manifest, without Qt.
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
-const load = (file, names) => new Function(fs.readFileSync(path.join(root, file), "utf8")
+const load = (file, names) => new Function(fs.readFileSync(path.join(root, "qml", "js", file), "utf8")
     .replace(/^\.pragma.*$/m, "") + "; return { " + names.join(", ") + " };")();
 
 const M = load("Model.js", ["str", "safeUrl", "plain", "parseRecognition", "statusText", "historyPush", "songKey",

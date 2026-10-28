@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell
-import "Art.js" as Art
+import "../js/Art.js" as Art
 
 // The covers of the songs found, made safe first: each cover address becomes a small,
 // clean PNG in ~/.cache/omatune/covers (see Art.js). pathFor() hands back its file once

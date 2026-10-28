@@ -2,7 +2,7 @@
 // Regenerates manifest.json from Settings.js:  node tools/gen-manifest.js
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, "..");
-const src = fs.readFileSync(path.join(root, "Settings.js"), "utf8").replace(".pragma library", "");
+const src = fs.readFileSync(path.join(root, "qml", "js", "Settings.js"), "utf8").replace(".pragma library", "");
 const { realSettings } = new Function(src + ";return { realSettings }")();
 const settings = realSettings();
 
@@ -15,7 +15,7 @@ const manifest = {
   license: "MIT",
   description: "Song recognition in your Omarchy bar: click to listen, then see the song, artist and cover in a notification and in the history. Needs SongRec installed.",
   kinds: ["bar-widget"],
-  entryPoints: { barWidget: "BarWidget.qml" },
+  entryPoints: { barWidget: "qml/BarWidget.qml" },
   barWidget: {
     displayName: "Omatune",
     description: "Song recognition with theme, notification and history settings",
