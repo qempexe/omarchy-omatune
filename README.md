@@ -1,185 +1,185 @@
-# Omatune
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-dark.png">
+    <img src="assets/logo.png" alt="Omatune logo" width="112">
+  </picture>
+</p>
 
-Song recognition in your [Omarchy](https://omarchy.org) bar. Click the icon, let it listen for a few seconds, and the song appears as a notification with its cover photo, artist and title, on the bar, and in your history.
+<h1 align="center">Omatune</h1>
 
-![Omatune preview](preview.png)
+<p align="center">Song recognition in your <a href="https://omarchy.org">Omarchy</a> bar: click, let it listen for a few seconds, and see the song.</p>
+
+![Omatune](preview.png)
+
+Click the icon, let it listen for a few seconds, and the song appears as a notification
+with its cover, title and artist, on the bar, and in your history. It listens to what
+this computer plays or to the room, and it can keep going, one song after another.
 
 ## Features
 
-- **Identify**: press **Listen** in the panel to record a few seconds (length is configurable). Or flip the switch in the panel header (**Continuous listening**) to keep identifying songs one after another with no clicks.
-- **Notifications**: the song title and artist, with the album cover as the picture. The cover is downloaded once and cached.
-- **Listen to this computer or the microphone**: *This computer* records whatever is playing; *Microphone* listens to the room.
-- **Themes**: *Follow Omarchy* uses your live Omarchy theme and updates the moment you switch it. *Custom* lets you choose the background, text and accent from a palette or a hex code. *Monochrome* is greyscale.
-- **Bar**: the icon (changeable) and optionally the last song found.
-- **History**: the most recent songs, newest first. Click one to open it on Shazam. Size is configurable.
-- **Favourites**: save any song with **♡ Save** (on the last result) or **♡** (on a History row). The **♥ Favourites** filter in History shows only the saved songs. They are kept separately from history, so clearing history keeps them.
-- **Open on Shazam**: the last result has a button to open its page in your browser.
+- **Identify** a song from a few seconds of sound, with [SongRec](https://github.com/marin-m/SongRec).
+- **This computer or the microphone**: what is playing here, or what is playing in the room.
+- **Continuous listening**: one song after another, with no clicks, and a repeat logged only once.
+- **Notifications** with the title, the artist, the album and the cover.
+- **History and favourites**: the latest songs, and the ones you save, kept apart.
+- **Your theme**: follows your Omarchy theme live, or your own colours, or monochrome.
 
-## Requirements
+### Listen
 
-- [SongRec](https://github.com/marin-m/SongRec) with its command-line tool `songrec` on your `PATH`. Install the `songrec` package from your distribution's repositories before using Omatune. Omatune does not install it for you: if it is missing, the Listen tab shows a notice asking you to install it, with a **Recheck** button to press once it is on your `PATH`.
-- PipeWire (`pw-record`) or PulseAudio (`parecord`) for recording.
-- `curl` for the cover photo, `notify-send` (any notification daemon, Omarchy's included) for notifications, `xdg-open` for opening links, and `xdg-terminal-exec` for the one-time SongRec install. All come with a stock Omarchy.
-- Internet access while identifying: SongRec sends a fingerprint of the recording to Shazam's service.
+<img align="right" src="screenshots/listen.png" alt="Listen" width="380">
 
-## Install
+Press **Listen** to record a few seconds (4 to 20, as you set it), or flip the switch in
+the header for **continuous listening**: songs are identified one after another until
+you switch it off, and the same song heard twice is not logged or notified twice.
 
-```
+The last song found shows with its cover, title, artist and album, with **Open on
+Shazam** and **♡ Save**. The bar shows it next to the icon, if you like.
+
+<br clear="right">
+
+### History and favourites
+
+<img align="right" src="screenshots/history.png" alt="History" width="380">
+
+The latest songs, newest first. Click one to open it on Shazam, and **♡** to save it.
+**♥ Favourites** shows only the saved ones. They are kept apart from the history, so
+clearing the history keeps them, and they don't count toward how many songs the
+history keeps.
+
+<br clear="right">
+
+## Installation
+
+```bash
 omarchy plugin add https://github.com/qempexe/omarchy-omatune.git --enable --yes
-```
-
-That is the whole install. The first time you open the Listen tab, Omatune checks for SongRec and, if it is missing, offers to install it (see above). Nothing is installed without your confirmation in the terminal.
-
-Or by hand: copy this directory to `~/.config/omarchy/plugins/io.github.qempexe.omatune/` (the folder name must match the plugin id), then:
-
-```
-omarchy-shell shell rescanPlugins
-omarchy plugin enable io.github.qempexe.omatune
-```
-
-Add the widget to your bar layout in `~/.config/omarchy/shell.json`, under `bar` → `layout` → the section you want:
-
-```
-{ "id": "io.github.qempexe.omatune" }
-```
-
-Then restart the shell:
-
-```
 omarchy restart shell
 ```
+
+Then add **Omatune** to your bar, from the bar settings or with
+`{ "id": "io.github.qempexe.omatune" }` under `bar` → `layout` in
+`~/.config/omarchy/shell.json`.
+
+It needs:
+
+- [SongRec](https://github.com/marin-m/SongRec), with its `songrec` command on your
+  `PATH`. Install the `songrec` package yourself; Omatune never installs anything.
+  While it's missing, the Listen tab says so, with a **Recheck** button for once it's there.
+- PipeWire (`pw-record`) or PulseAudio (`parecord`) to record.
+- `curl` and `vipsthumbnail` (libvips) for the covers, `notify-send` for the
+  notifications and `xdg-open` for links. Omarchy has them all.
 
 ## Usage
 
-| Action                    | How                                                                |
-| ------------------------- | ------------------------------------------------------------------ |
-| Identify a song           | Open the panel and press **Listen**, or flip the header switch for **Continuous listening** |
-| Open the panel            | Left-click the bar icon (Listen tab)                               |
-| Open History              | Middle-click the bar icon                                          |
-| Open Settings             | Right-click the bar icon                                           |
-| Open a song's page        | **Open on Shazam** on the last result, or click it in **History**   |
-| Save a favourite          | **♡ Save** on the last result, or **♡** on a row in **History**     |
-| See favourites            | **History** tab → **♥ Favourites**                                  |
-| Clear history             | **History** tab → **All** → **Clear** (favourites are kept)         |
-| Change a setting          | **Settings** tab. Every option is shown; changes apply at once.     |
+### Bar button
 
-## Settings
+| Click | Opens |
+| --- | --- |
+| Left | the Listen tab |
+| Middle | the History tab |
+| Right | the Settings tab |
 
-Right-click the bar icon to open the panel on the **Settings** tab. Settings are grouped, every option is visible, and each change applies immediately.
+**Esc** or **×** closes the panel.
 
-**Look**
-- **Theme**: *Follow Omarchy* (live), *Custom* or *Monochrome*.
-- **Custom colours** (shown when Theme is Custom): choose *Background*, *Text* or *Accent*, then pick a swatch or type a hex code such as `#d4a35a`. Invalid codes are ignored until they are complete.
-- **Bar icon**: up to 8 characters. Updates as you type.
-- **Show last song on the bar**: on or off.
+### What happens when you listen
 
-**Listening**
-- **Listen to**: *This computer* or *Microphone*.
-- **Listen length**: 4 to 20 seconds.
+1. `pw-record` (or `parecord`) records a short clip to `~/.cache/omatune/`. *This
+   computer* records the monitor of the default output, *Microphone* the default input.
+2. `songrec audio-file-to-recognized-song` reads it and prints the answer. The clip is
+   deleted straight after.
+3. The title, artist, album, cover and link are read from the answer, and the song goes
+   into the history and the notification.
 
-**Notifications**
-- **Notify when a song is found**, **Cover photo in notification**, **Notification time**.
+## Configuration
 
-**History**
-- **Songs to keep**: 5 to 100.
+The **Settings** tab, or a right click on the bar button. Everything applies at once and
+is saved in `~/.local/state/omarchy-omatune/settings.json`.
 
-Settings are saved automatically in `~/.local/state/omarchy-omatune/settings.json` and survive restarts. Changes show up instantly and are written to disk in the background, so dragging a control or typing never slows the shell. Nothing is sent to `omarchy bar set`, because that rewrites the shell config and reloads the whole shell.
+<table>
+<tr>
+<td><img src="screenshots/settings.png" alt="Settings"></td>
+<td><img src="screenshots/about.png" alt="About"></td>
+</tr>
+</table>
 
-## How it works
+| Group | Setting | Default | |
+| --- | --- | --- | --- |
+| Look | Theme | Follow Omarchy | Follow Omarchy (live), Custom or Monochrome |
+| | Custom colours | | background, text and accent, a swatch or a hex code, used exactly as you pick them |
+| | Bar icon | ♪ | up to 8 characters |
+| | Show last song on the bar | on | |
+| Listening | Listen to | This computer | or Microphone |
+| | Listen length | 5 s | 4 to 20 seconds |
+| Notifications | Notify when a song is found | on | |
+| | Cover photo in notification | on | |
+| | Notification time | 8 s | 2 to 30 seconds |
+| History | Songs to keep | 20 | 5 to 100 |
 
-- **Recording**: `pw-record` (or `parecord`) captures a short WAV file in `~/.cache/omatune/`. *This computer* uses the monitor of the default output, so it hears what you play; *Microphone* uses the default input.
-- **Setup**: on start-up the widget runs `command -v songrec`. If it is missing, the Listen tab shows a notice asking you to install it; press **Recheck** once it is on your `PATH`. Omatune never invokes a package manager and never installs, upgrades or removes anything.
-- **Identifying**: `songrec audio-file-to-recognized-song` prints the Shazam response as JSON, which is parsed for the title, artist, album, cover and link. The recording is deleted straight after.
-- **Notification**: `notify-send` shows the title as the heading and the artist (and album) underneath. The cover is downloaded with `curl` into `~/.cache/omatune/covers/`.
-- **Settings**: kept in memory so they apply at once, and saved to `~/.local/state/omarchy-omatune/settings.json`. A first change is written immediately and a quick series of changes is written once, shortly after the last one. The store ignores the file watcher's echo of its own writes, so a slider never jumps back, and edits made before the file has loaded are merged over it instead of replacing it. Edits to the file by hand are picked up.
-- **Text fields**: the bar icon and hex colour fields are a small custom editor, not a `TextInput`, so they never read the clipboard in the background. **Ctrl+V** (or **Shift+Insert**) does one bounded paste through `wl-paste`: the first line only, at most 1 KB. Mouse selection, copy and cut are not supported; **Ctrl+A** selects all.
-- **History**: `~/.local/state/omatune/history.json`.
-- **Favourites**: `~/.local/state/omatune/favourites.json`. Nothing else is stored.
-- **Theme**: *Follow Omarchy* reads the active theme's `colors.toml` (or the per-app files of older themes) from `~/.config/omarchy/current/theme/`. It re-reads when `current/theme.name` changes, and polls every two seconds as a backstop. The Settings tab says which theme it is following, or why it could not read one.
+**About** has the logo, the version and a link to more plugins.
 
-## Privacy
+## Troubleshooting
 
-Identifying a song sends a fingerprint of the recording to Shazam through SongRec. The recording file itself is deleted straight after it has been processed. The only other network access is downloading the cover photo from the address Shazam returns. Use *Microphone* only if you are comfortable with that.
+- **Nothing found.** Identifying needs a clear part of a song. A quiet or noisy clip, or
+  a short one, often finds nothing; try a longer listen.
+- **It stopped finding songs.** SongRec talks to an unofficial Shazam interface. Update
+  SongRec. If songs are found but details are missing, check what
+  `songrec audio-file-to-recognized-song <file.wav>` prints and open an issue.
+- **Privacy.** Identifying sends a fingerprint of the clip to Shazam, through SongRec.
+  The clip itself is deleted straight after. The only other network use is downloading
+  the cover from the https address Shazam gives.
+- **Covers.** A cover is never shown as it is downloaded: `curl` fetches it over https
+  only, with a size cap (8 MiB) and a time limit, and `vipsthumbnail` makes it into a
+  small, clean PNG in a separate process with a memory and a time limit. Only that PNG
+  is shown, in the panel and in the notification. The copies live in
+  `~/.cache/omatune/covers` and are cleared at every start.
+- **Files.** The history is in `~/.local/state/omatune/history.json` and the favourites
+  in `favourites.json` next to it. Both are checked when they are read back.
+- **Text fields.** The bar icon and hex fields never read the clipboard by themselves.
+  **Ctrl+V** (or **Shift+Insert**) pastes once through `wl-paste`, the first line only,
+  at most 1 KB.
 
-## Limitations
+## Contributing
 
-- Identification needs a clear part of a song. Quiet or noisy recordings, or a short listen, often find nothing.
-- SongRec's recognition relies on an unofficial Shazam interface. If it stops working, update SongRec.
-- The plugin reads SongRec's JSON fields defensively, so new response shapes produce "no match" rather than errors. If songs are found but details are missing, check the output of `songrec audio-file-to-recognized-song <file.wav>` and report it.
+Bug reports and ideas are welcome as [issues](https://github.com/qempexe/omarchy-omatune/issues).
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to add a setting, the rules and the
+tests. Everyone taking part is expected to follow the [code of conduct](CODE_OF_CONDUCT.md).
+What changed in each version is in the [changelog](CHANGELOG.md).
 
-## Files
-
-| File                    | Purpose                                                          |
-| ----------------------- | ---------------------------------------------------------------- |
-| `manifest.json`         | Omarchy plugin manifest (generated from `Settings.js`)           |
-| `BarWidget.qml`         | Bar icon, recording and identification, notifications, history   |
-| `Foreground.qml`        | Hidden probe that reads the bar's colours for the popup          |
-| `Panel.qml`             | The popup window: Listen, History (All / Favourites) and Settings tabs |
-| `Settings.js`           | The list of settings, shared by the manifest and the Settings tab |
-| `Model.js`              | Pure logic: parsing results, colours, settings, history          |
-| `SettingsStore.qml`     | Instant, autosaved local settings (never calls `omarchy bar set`) |
-| `FieldBox.qml`          | Text field with its own editor and a bounded Ctrl+V paste        |
-| `FlatButton.qml`, `SectionLabel.qml` | Small themed UI pieces                              |
-| `tools/gen-manifest.js` | Regenerates `manifest.json` from `Settings.js`                   |
-| `tests/test_model.js`   | Unit tests for the pure logic and the manifest                   |
-| `preview.png`           | Title card used in this README and the marketplace               |
-
-## Development
-
-Run the tests (no Qt needed):
-
-```
-node tests/test_model.js
-```
-
-After changing a setting in `Settings.js`, regenerate the manifest:
+### Source layout
 
 ```
-node tools/gen-manifest.js
+qml/
+├── BarWidget.qml     the bar button, recording and identifying, notifications, history
+├── core/             SettingsStore (settings, applied at once and saved locally),
+│                     ArtCache (covers, made safe), Run (a helper with limits), Foreground
+├── panel/            Panel (Listen, History, Settings), AboutPage
+├── controls/         FieldBox (a text field with a bounded paste), FlatButton
+└── js/               Model.js (pure logic), Settings.js (every setting), Art.js (cover limits)
+assets/               the logo, light and dark
+tools/gen-manifest.js node tools/gen-manifest.js
+tests/test_model.js   node tests/test_model.js
 ```
 
-Restart the shell after changing QML, since Quickshell does not always reload it on its own:
+### Upgrading and uninstalling
 
-```
-omarchy restart shell
-```
-
-## Changelog
-
-- **1.1.0**: the new look: its own rounded window with a thin border, a header card with the continuous-listening switch, underlined tabs, one card per tab, switches for on/off settings, and a Listen tab that grows so nothing overlaps the footer. Settings now apply instantly and autosave locally without calling `omarchy bar set`, so changing a setting no longer freezes the shell. The bar icon and hex colour fields no longer read the clipboard in the background; paste is a single bounded Ctrl+V.
-- **1.0.1**: first-use SongRec setup notice in the Listen tab; README click actions corrected; description reworded.
-- **1.0.0**: first release.
-
-## Updating
-
-```
+```bash
 omarchy plugin update io.github.qempexe.omatune
 omarchy restart shell
 ```
 
-## Uninstall
-
-```
+```bash
 omarchy plugin remove io.github.qempexe.omatune
+omarchy restart shell
+rm -rf ~/.local/state/omatune ~/.local/state/omarchy-omatune ~/.cache/omatune   # history, favourites, settings, covers
 ```
 
-Then remove the `{ "id": "io.github.qempexe.omatune" }` entry from your bar layout in `shell.json` by hand, and restart the shell. To delete the saved history and cached covers:
+## License and credits
 
-```
-rm -rf ~/.local/state/omatune ~/.local/state/omarchy-omatune ~/.cache/omatune
-```
+[MIT](LICENSE).
 
-## Credits and thanks
-
-- Built around **SongRec** by Marin M. ([github.com/marin-m/SongRec](https://github.com/marin-m/SongRec)), which does the actual song recognition. This plugin is a bar front end for it.
-- Thanks to the **Omarchy** project for the shell and plugin system this runs on.
-- Thanks to **Quickshell** and **Qt** for the toolkit the widget is built with.
+- Built around **SongRec** by Marin M. ([github.com/marin-m/SongRec](https://github.com/marin-m/SongRec)), which does the recognition. Omatune is a bar front end for it.
+- Thanks to the **Omarchy** project for the shell and its plugin system, and to **Quickshell** and **Qt** for the toolkit.
 - Thanks to everyone who tests it and reports issues.
 
-## Disclaimer
-
-Omatune is an independent community plugin. It is not affiliated with SongRec, Shazam, Apple or Omarchy, and it is not endorsed by them. Shazam is a trademark of its owner; the names are used only to describe what the plugin connects to.
-
-## License
-
-[MIT](LICENSE)
+Omatune is an independent community plugin. It is not affiliated with or endorsed by
+SongRec, Shazam, Apple or Omarchy. Shazam is a trademark of its owner; the name is used
+only to describe what the plugin connects to.
