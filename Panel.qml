@@ -42,12 +42,12 @@ PopupWindow {
         && root.shellBgColor !== undefined && root.shellFgColor !== undefined
     readonly property color fg: useBarColors ? root.shellFgColor : (widget ? widget.colors.text : "#e0e0e0")
     readonly property color panelBg: {
-        if (useBarColors) { var c = root.shellBgColor; return Qt.rgba(c.r, c.g, c.b, 1) }   // never translucent
+        if (useBarColors) { const c = root.shellBgColor; return Qt.rgba(c.r, c.g, c.b, 1) }   // never translucent
         return widget ? widget.colors.background : "#141414"
     }
     readonly property color accent: {
         if (useBarColors) {
-            var o = widget.omarchy
+            const o = widget.omarchy
             return (o && Model.isHex(o.accent)) ? Qt.color(o.accent) : root.shellFgColor
         }
         return widget ? widget.colors.accent : "#aaaaaa"
@@ -111,7 +111,7 @@ PopupWindow {
 
     // Shown option label for an enum value.
     function labelFor(d, value) {
-        var i = d.options.indexOf(value)
+        const i = d.options.indexOf(value)
         return i >= 0 && d.labels ? d.labels[i] : String(value)
     }
 
@@ -120,10 +120,11 @@ PopupWindow {
     readonly property string themeChoice: root.widget ? root.widget.themeChoice : "follow"
     readonly property var settingRows: buildRows(themeChoice)
     function buildRows(theme) {
-        var rows = [], lastGroup = ""
-        var schema = Settings.SCHEMA
-        for (var i = 0; i < schema.length; i++) {
-            var d = schema[i]
+        const rows = []
+        let lastGroup = ""
+        const schema = Settings.SCHEMA
+        for (let i = 0; i < schema.length; i++) {
+            const d = schema[i]
             if (d.ui === "hidden") continue
             if (d.showWhen && d.showWhen !== theme) continue
             if (d.group !== lastGroup) { rows.push({ type: "header", label: d.group }); lastGroup = d.group }
@@ -158,7 +159,7 @@ PopupWindow {
     readonly property real padRight: (vertical && !barAtLeft) ? gap + extra : 0
 
     function sideFromText(v) {
-        var t = String(v === undefined || v === null ? "" : v).toLowerCase()
+        const t = String(v === undefined || v === null ? "" : v).toLowerCase()
         if (t.indexOf("top") >= 0) return "top"
         if (t.indexOf("bottom") >= 0) return "bottom"
         if (t.indexOf("left") >= 0) return "left"
@@ -167,20 +168,20 @@ PopupWindow {
     }
 
     function locate() {
-        var item = root.anchorItem
+        const item = root.anchorItem
         if (!item) return
-        var scr = item.screen
-        var sw = scr ? scr.width : 1920
-        var sh = scr ? scr.height : 1080
-        var side = ""
-        var qsWin = null
-        var win = null
+        const scr = item.screen
+        const sw = scr ? scr.width : 1920
+        const sh = scr ? scr.height : 1080
+        let side = ""
+        let qsWin = null
+        let win = null
 
         // 1. the bar window knows which edges it is attached to
         try { qsWin = item.QsWindow.window } catch (e0) { qsWin = null }
         try { win = qsWin ? qsWin : item.Window.window } catch (e1) { win = null }
         try {
-            var an = win ? win.anchors : null
+            const an = win ? win.anchors : null
             if (an) {
                 if (root.vertical) {
                     if (an.left && !an.right) side = "left"
@@ -194,9 +195,9 @@ PopupWindow {
 
         // 2. the shell's bar object may say it outright
         if (side === "" && root.barObject) {
-            var names = ["position", "barPosition", "edge", "side", "location", "placement", "barSide"]
-            for (var i = 0; i < names.length && side === ""; i++) {
-                var got = ""
+            const names = ["position", "barPosition", "edge", "side", "location", "placement", "barSide"]
+            for (let i = 0; i < names.length && side === ""; i++) {
+                let got = ""
                 try { got = root.sideFromText(root.barObject[names[i]]) } catch (e3) { got = "" }
                 if ((root.vertical && (got === "left" || got === "right"))
                         || (!root.vertical && (got === "top" || got === "bottom")))
@@ -206,7 +207,7 @@ PopupWindow {
 
         // 3. last resort: which half of the screen (only meaningful when the bar
         //    window is as big as the screen)
-        var pos = item.mapToItem(null, 0, 0)
+        const pos = item.mapToItem(null, 0, 0)
         if (side === "") {
             if (root.vertical) side = pos.x < sw / 2 ? "left" : "right"
             else side = pos.y < sh / 2 ? "top" : "bottom"
@@ -215,9 +216,9 @@ PopupWindow {
         root.barAtLeft = side === "left"
 
         // Anchor rectangle on the bar window's outer edge (window coordinates).
-        var ww = (win && win.width > 0) ? win.width : 0
-        var wh = (win && win.height > 0) ? win.height : 0
-        var small = root.vertical ? (ww > 0 && ww < sw * 0.5) : (wh > 0 && wh < sh * 0.5)
+        const ww = (win && win.width > 0) ? win.width : 0
+        const wh = (win && win.height > 0) ? win.height : 0
+        const small = root.vertical ? (ww > 0 && ww < sw * 0.5) : (wh > 0 && wh < sh * 0.5)
         root.useRect = !!qsWin && small
         root.anchorWin = qsWin
         if (root.useRect) {
@@ -238,8 +239,8 @@ PopupWindow {
         }
 
         // Tallest the panel may be and still fit between the bar and the far edge.
-        var thick = (!root.vertical && wh > 0 && wh < sh * 0.5) ? wh : 40
-        var room = root.vertical ? sh - 40 : sh - thick - root.gap - root.extra - 16
+        const thick = (!root.vertical && wh > 0 && wh < sh * 0.5) ? wh : 40
+        const room = root.vertical ? sh - 40 : sh - thick - root.gap - root.extra - 16
         root.maxHeight = Math.max(300, Math.min(680, room))
     }
 
@@ -259,10 +260,10 @@ PopupWindow {
 
     Component.onCompleted: {
         try {
-            var g = Qt.createQmlObject(
+            const g = Qt.createQmlObject(
                 'import Quickshell.Hyprland\nHyprlandFocusGrab { }', root, "OmatuneFocusGrab")
             g.windows = [root]
-            g.cleared.connect(function() {
+            g.cleared.connect(() => {
                 root.grabClosedAt = Date.now()
                 root.visible = false
             })
@@ -296,7 +297,7 @@ PopupWindow {
     anchor.adjustment: root.vertical ? PopupAdjustment.SlideY : PopupAdjustment.SlideX
 
     onVisibleChanged: {
-        if (root.grab) Qt.callLater(function() { root.grab.active = root.visible })
+        if (root.grab) Qt.callLater(() => { root.grab.active = root.visible })
     }
 
     Shortcut {
@@ -1195,7 +1196,7 @@ PopupWindow {
                                                 // `edited` fires only for real typing or a bounded paste,
                                                 // so a `cfg` update never re-saves the same value.
                                                 onEdited: function(value) {
-                                                    var v = value.trim()
+                                                    const v = value.trim()
                                                     if (/^#[0-9a-fA-F]{6}$/.test(v)) root.widget.setValue(root.colorRole, v.toLowerCase())
                                                 }
                                             }

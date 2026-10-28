@@ -16,9 +16,9 @@ BarWidget {
     SettingsStore { id: settingsStore }
 
     function buildRaw(v) {
-        var raw = {}, rows = Settings.realSettings()
-        for (var i = 0; i < rows.length; i++) {
-            var d = rows[i]
+        const raw = {}, rows = Settings.realSettings()
+        for (let i = 0; i < rows.length; i++) {
+            const d = rows[i]
             raw[d.key] = v[d.key] !== undefined ? v[d.key] : setting(d.key, d.defaultValue)
         }
         return raw
@@ -56,9 +56,9 @@ BarWidget {
     }
 
     function tooltip() {
-        var lines = ["Omatune: left click to listen, middle click for history, right click for settings."]
+        const lines = ["Omatune: left click to listen, middle click for history, right click for settings."]
         if (last) lines.push("Last: " + last.title + (last.artist ? " — " + last.artist : ""))
-        return lines.map(function(l) { return Model.plain(l) }).join("\n")
+        return lines.map(l => Model.plain(l)).join("\n")
     }
 
     // listening: record, then identify
@@ -110,9 +110,9 @@ BarWidget {
 
     function captureDone(text) {
         countdown.stop()
-        var lines = String(text || "").split("\n")
-        var err = ""
-        for (var i = 0; i < lines.length; i++)
+        const lines = String(text || "").split("\n")
+        let err = ""
+        for (let i = 0; i < lines.length; i++)
             if (lines[i].indexOf("@@ERR ") === 0) err = lines[i].slice(6)
         if (lines.indexOf("@@OK") < 0) { fail(err || "recording failed"); scheduleNext(); return }
         phase = "identifying"
@@ -121,14 +121,14 @@ BarWidget {
     }
 
     function recognitionDone(text) {
-        var r = Model.parseRecognition(text)
+        const r = Model.parseRecognition(text)
         if (!r) { fail("no match, try a longer listen"); scheduleNext(); return }
         phase = "idle"
         // while continuous, the same song heard again is not logged or notified twice
-        var repeat = continuous && !!last && Model.songKey(last) === Model.songKey(r)
+        const repeat = continuous && !!last && Model.songKey(last) === Model.songKey(r)
         last = r
         if (!repeat) {
-            var entry = { title: r.title, artist: r.artist, album: r.album, cover: r.cover, url: r.url,
+            const entry = { title: r.title, artist: r.artist, album: r.album, cover: r.cover, url: r.url,
                           at: new Date().toISOString() }
             history = Model.historyPush(history, entry, cfg.historySize)
             saveHistory()
@@ -172,7 +172,7 @@ BarWidget {
     function notify(entry) {
         pending = entry
         if (cfg.notifyCover && entry.cover) {
-            var file = coverDir + "/" + Model.coverFileName(entry.cover)
+            const file = coverDir + "/" + Model.coverFileName(entry.cover)
             coverProc.command = ["sh", "-c",
                 'mkdir -p "$1"; [ -s "$2" ] || curl -fsSL --max-time 10 -o "$2" "$3" 2>/dev/null; [ -s "$2" ] && echo "@@COVER"',
                 "sh", coverDir, file, entry.cover]
@@ -187,16 +187,16 @@ BarWidget {
         stdout: StdioCollector {
             id: coverOut
             onStreamFinished: {
-                var ok = String(coverOut.text).indexOf("@@COVER") >= 0
+                const ok = String(coverOut.text).indexOf("@@COVER") >= 0
                 root.sendNotification(ok && root.pending ? root.coverDir + "/" + Model.coverFileName(root.pending.cover) : "")
             }
         }
     }
 
     function sendNotification(iconPath) {
-        var e = pending
+        const e = pending
         if (!e) return
-        var body = e.artist + (e.album ? "\n" + e.album : "")
+        const body = e.artist + (e.album ? "\n" + e.album : "")
         notifyProc.command = ["notify-send", "-a", "Omatune", "-i", iconPath || "audio-x-generic",
                               "-t", String(cfg.notifyTimeout * 1000),
                               Model.plain(e.title), Model.plain(body)]
@@ -206,7 +206,7 @@ BarWidget {
 
     // opening a result in the browser
     function openLink(url) {
-        var u = Model.safeUrl(url)
+        const u = Model.safeUrl(url)
         if (!u) return
         openProc.command = ["xdg-open", u]
         openProc.running = true
@@ -216,7 +216,7 @@ BarWidget {
     // history on disk
     function loadHistory(text) {
         try {
-            var arr = JSON.parse(String(text || "[]"))
+            const arr = JSON.parse(String(text || "[]"))
             history = Array.isArray(arr) ? arr.slice(0, 100) : []
         } catch (e) { history = [] }
         last = history.length ? history[0] : null
@@ -229,7 +229,7 @@ BarWidget {
     function isFavourite(entry) { return Model.isFavourite(root.favourites, entry) }
     function toggleFavourite(entry) {
         if (!entry) return
-        var copy = { title: entry.title, artist: entry.artist, album: entry.album || "", cover: entry.cover || "",
+        const copy = { title: entry.title, artist: entry.artist, album: entry.album || "", cover: entry.cover || "",
                      url: entry.url || "", at: entry.at || new Date().toISOString() }
         favourites = Model.toggleFavourite(favourites, copy)
         favFile.setText(JSON.stringify(favourites, null, 2) + "\n")
@@ -239,7 +239,7 @@ BarWidget {
         path: root.stateDir + "/favourites.json"
         onLoaded: {
             try {
-                var a = JSON.parse(text())
+                const a = JSON.parse(text())
                 root.favourites = Array.isArray(a) ? a : []
             } catch (e) { root.favourites = [] }
         }
@@ -305,17 +305,17 @@ BarWidget {
 
     function themeRead(text) {
         lastThemeText = String(text || "")
-        var t = null
+        let t = null
         if (lastThemeText.indexOf("@@THEME") >= 0) {
-            var installed = Model.parseOmarchyThemes(lastThemeText)
-            var named = /^@@NAME[ \t]*(.*)$/m.exec(lastThemeText)
-            var want = named ? Model.themeSlug(named[1]) : ""
+            const installed = Model.parseOmarchyThemes(lastThemeText)
+            const named = /^@@NAME[ \t]*(.*)$/m.exec(lastThemeText)
+            const want = named ? Model.themeSlug(named[1]) : ""
             // 1) the theme Omarchy reports as active: found by name, so it works in light and dark alike
-            for (var i = 0; i < installed.length && !t; i++)
+            for (let i = 0; i < installed.length && !t; i++)
                 if (want && Model.themeSlug(installed[i].name) === want) t = installed[i]
             // 2) otherwise the installed theme nearest the shell's bar colour, when that colour is known
             if (!t && shellBg !== null && shellBg !== undefined) {
-                var best = Model.closestTheme(installed, hexOf(shellBg))
+                const best = Model.closestTheme(installed, hexOf(shellBg))
                 t = best && best.dist < 0.012 ? best.theme : null
             }
         } else {
@@ -359,7 +359,7 @@ BarWidget {
         if (fgProbe.item) fgProbe.item.bar = root.bar
     }
     readonly property bool isVertical: {
-        var b = root.bar
+        const b = root.bar
         if (!b) return false
         try { return b.vertical === true || b.isVertical === true } catch (e) { return false }
     }
@@ -377,7 +377,7 @@ BarWidget {
         panelLoader.item.currentTab = tab
         if (panelLoader.item.opened)
             panelLoader.item.close()
-        Qt.callLater(function() {
+        Qt.callLater(() => {
             if (panelLoader.item)
                 panelLoader.item.open()
         })

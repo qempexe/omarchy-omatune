@@ -72,7 +72,7 @@ Rectangle {
         stdout: StdioCollector {
             id: pasteOut
             onStreamFinished: {
-                var t = String(pasteOut.text || "").split(/\r?\n/)[0]
+                const t = String(pasteOut.text || "").split(/\r?\n/)[0]
                 input.insert(input.cursorPosition, t)
             }
         }
@@ -97,12 +97,12 @@ Rectangle {
 
         // Insert plain text at `pos` (replaces everything after select-all).
         function insert(pos, str) {
-            var t = String(str === null || str === undefined ? "" : str)
+            let t = String(str === null || str === undefined ? "" : str)
                 .replace(/[\u0000-\u001f\u007f]/g, "")
             if (t === "") return
-            var base = text
+            let base = text
             if (selectAll) { base = ""; pos = 0; selectAll = false }
-            var room = box.maxLength - base.length
+            const room = box.maxLength - base.length
             if (room <= 0) return
             t = t.substring(0, room)
             pos = Math.max(0, Math.min(base.length, pos))
@@ -182,8 +182,8 @@ Rectangle {
             onPressed: function(mouse) {
                 input.forceActiveFocus()
                 input.selectAll = false
-                var best = input.text.length
-                for (var i = 0; i <= input.text.length; i++) {
+                let best = input.text.length
+                for (let i = 0; i <= input.text.length; i++) {
                     if (fm.advanceWidth(input.text.substring(0, i)) >= mouse.x) { best = i; break }
                 }
                 input.cursorPosition = best
@@ -192,8 +192,8 @@ Rectangle {
         }
 
         Keys.onPressed: function(event) {
-            var mods = event.modifiers
-            var ctrl = (mods & Qt.ControlModifier) !== 0
+            const mods = event.modifiers
+            const ctrl = (mods & Qt.ControlModifier) !== 0
             blink.on = true
             if (event.matches(StandardKey.Paste)
                     || (event.key === Qt.Key_Insert && (mods & Qt.ShiftModifier))) {
