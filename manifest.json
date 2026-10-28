@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.qempexe.omatune",
   "name": "Omatune",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "qempexe",
   "license": "MIT",
   "description": "Song recognition in your Omarchy bar: click to listen, then see the song, artist and cover in a notification and in the history. Needs SongRec installed.",
