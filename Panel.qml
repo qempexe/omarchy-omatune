@@ -650,7 +650,12 @@ PopupWindow {
                                     Image {
                                         id: thumb
                                         anchors.fill: parent
-                                        source: root.widget && root.widget.last && root.widget.last.cover ? root.widget.last.cover : ""
+                                        // only the clean copy of the cover, never the address itself
+                                        source: {
+                                            const w = root.widget
+                                            const p = w && w.last && w.last.cover ? w.covers.pathFor(w.last.cover) : ""
+                                            return p ? "file://" + p : ""
+                                        }
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
                                         sourceSize.width: 192

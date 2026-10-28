@@ -19,13 +19,6 @@ function plain(s) {
     return String(s === undefined || s === null ? "" : s).replace(/</g, "‹").replace(/>/g, "›")
 }
 
-// Stable file name for a cover image, derived from its URL.
-function coverFileName(url) {
-    let h = 5381
-    for (let i = 0; i < url.length; i++) h = ((h * 33) ^ url.charCodeAt(i)) >>> 0
-    return "cover-" + h.toString(16) + ".jpg"
-}
-
 // SongRec's `audio-file-to-recognized-song` prints the Shazam response as JSON.
 // The track lives under "track" (title, subtitle = artist, images, share, sections).
 // Returns { title, artist, album, cover, url } or null when nothing was recognised.

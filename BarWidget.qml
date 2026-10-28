@@ -33,7 +33,6 @@ BarWidget {
     readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state") + "/omatune"
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/omatune"
     readonly property string capturePath: cacheDir + "/capture.wav"
-    readonly property string coverDir: cacheDir + "/covers"
     readonly property string omarchyConfig: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/omarchy"
 
     // ── recording state ──
@@ -168,34 +167,36 @@ BarWidget {
         stdout: StdioCollector { id: recogOut; onStreamFinished: root.recognitionDone(recogOut.text) }
     }
 
-    // notification: cover photo (downloaded once and cached), artist and title
+    // notification: artist and title, with the cover once it has been made safe (see ArtCache.qml)
+    ArtCache {
+        id: artCache
+        onMade: function(url) {
+            if (root.pending && root.pending.cover === url) root.sendNotification(artCache.pathFor(url))
+        }
+        onFailedUrl: function(url) {
+            if (root.pending && root.pending.cover === url) root.sendNotification("")
+        }
+    }
+    readonly property alias covers: artCache
     function notify(entry) {
         pending = entry
         if (cfg.notifyCover && entry.cover) {
-            const file = coverDir + "/" + Model.coverFileName(entry.cover)
-            coverProc.command = ["sh", "-c",
-                'mkdir -p "$1"; [ -s "$2" ] || curl -fsSL --max-time 10 -o "$2" "$3" 2>/dev/null; [ -s "$2" ] && echo "@@COVER"',
-                "sh", coverDir, file, entry.cover]
-            coverProc.running = true
+            coverWait.restart()
+            artCache.ask(entry.cover)
         } else {
             sendNotification("")
         }
     }
-
-    Process {
-        id: coverProc
-        stdout: StdioCollector {
-            id: coverOut
-            onStreamFinished: {
-                const ok = String(coverOut.text).indexOf("@@COVER") >= 0
-                root.sendNotification(ok && root.pending ? root.coverDir + "/" + Model.coverFileName(root.pending.cover) : "")
-            }
-        }
-    }
+    // a cover that takes too long: the notification goes without it
+    Timer { id: coverWait; interval: 30000; onTriggered: root.sendNotification("") }
+    // the last song's cover, for the panel
+    onLastChanged: if (root.last && root.last.cover) artCache.ask(root.last.cover)
 
     function sendNotification(iconPath) {
         const e = pending
         if (!e) return
+        pending = null
+        coverWait.stop()
         const body = e.artist + (e.album ? "\n" + e.album : "")
         notifyProc.command = ["notify-send", "-a", "Omatune", "-i", iconPath || "audio-x-generic",
                               "-t", String(cfg.notifyTimeout * 1000),
@@ -248,7 +249,7 @@ BarWidget {
 
     Process {
         id: mkDirs
-        command: ["mkdir", "-p", root.stateDir, root.coverDir]
+        command: ["mkdir", "-p", root.stateDir]
         onExited: { historyFile.reload(); favFile.reload() }
     }
     FileView {
