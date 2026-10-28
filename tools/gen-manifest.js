@@ -13,7 +13,7 @@ const manifest = {
   version: "1.1.0",
   author: "qempexe",
   license: "MIT",
-  description: "Song recognition in your Omarchy bar: click to listen, then see the song, artist and cover in a notification and in the history. First use offers a one-click SongRec install.",
+  description: "Song recognition in your Omarchy bar: click to listen, then see the song, artist and cover in a notification and in the history. Needs SongRec installed.",
   kinds: ["bar-widget"],
   entryPoints: { barWidget: "BarWidget.qml" },
   barWidget: {
