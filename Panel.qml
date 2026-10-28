@@ -325,7 +325,7 @@ PopupWindow {
             id: card
             anchors.fill: parent
 
-            // ── header card: continuous-listening switch, name and status, close ──
+            // ── header card: the logo, name and status, the continuous-listening switch, close ──
             Item {
                 id: header
                 anchors.left: parent.left
@@ -346,13 +346,22 @@ PopupWindow {
                     anchors.margins: 12
                     spacing: 12
 
-                    Sw {
+                    Rectangle {
                         Layout.alignment: Qt.AlignVCenter
-                        ink: root.fg
-                        accent: root.accent
-                        knob: root.inkOnAccent
-                        on: !!root.widget && root.widget.continuous
-                        onFlipped: if (root.widget) root.widget.setContinuous(!root.widget.continuous)
+                        implicitWidth: 30; implicitHeight: 30
+                        radius: 6
+                        color: root.accentTint(0.18)
+                        border.width: 1
+                        border.color: root.tint(0.08)
+                        Image {   // the logo, light or dark to suit the panel
+                            anchors.centerIn: parent
+                            width: 24; height: width
+                            source: Qt.resolvedUrl(root.luma(root.panelBg) > 0.5 ? "assets/logo-dark.png" : "assets/logo.png")
+                            sourceSize.width: 96
+                            sourceSize.height: 96
+                            smooth: true
+                            mipmap: true
+                        }
                     }
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -378,6 +387,14 @@ PopupWindow {
                             elide: Text.ElideRight
                             textFormat: Text.PlainText
                         }
+                    }
+                    Sw {   // continuous listening
+                        Layout.alignment: Qt.AlignVCenter
+                        ink: root.fg
+                        accent: root.accent
+                        knob: root.inkOnAccent
+                        on: !!root.widget && root.widget.continuous
+                        onFlipped: if (root.widget) root.widget.setContinuous(!root.widget.continuous)
                     }
                     Rectangle {
                         Layout.alignment: Qt.AlignVCenter
