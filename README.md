@@ -14,6 +14,7 @@
 Click the icon, let it listen for a few seconds, and the song appears as a notification
 with its cover, title and artist, on the bar, and in your history. It listens to what
 this computer plays or to the room, and it can keep going, one song after another.
+It opens docked to the bar, or pops out into a window of its own.
 
 ## Features
 
@@ -22,7 +23,11 @@ this computer plays or to the room, and it can keep going, one song after anothe
 - **Continuous listening**: one song after another, with no clicks, and a repeat logged only once.
 - **Notifications** with the title, the artist, the album and the cover.
 - **History and favourites**: the latest songs, and the ones you save, kept apart.
-- **Your theme**: follows your Omarchy theme live, or your own colours, or monochrome.
+- **Your theme**: follows your Omarchy theme live, takes your window border's colors, or
+  uses your own colors exactly, or none at all.
+- **Docked or popped out**: a panel on the bar, or a window you can move, resize and tile.
+- **Made to fit**: card style, spacing, roundness, text size, window size, outline,
+  tint and opacity, all in a searchable Settings tab.
 
 ### Listen
 
@@ -74,11 +79,28 @@ It needs:
 
 | Click | Opens |
 | --- | --- |
-| Left | the Listen tab |
-| Middle | the History tab |
+| Left | opens Omatune on the Listen tab, or closes it |
+| Middle | the History tab (or *Listen now*, or nothing: see **Middle click**) |
 | Right | the Settings tab |
 
-**Esc** or **×** closes the panel.
+**Esc** or **×** closes it, and **Alt+←/→** switches tabs.
+
+### Pop out and dock
+
+The header's **Pop out** turns Omatune into a real window you can move, resize and
+tile, and **Dock** puts it back on the bar. The open tab, the search and the history
+filter survive the switch. **Settings › Window › Open as** picks which one the bar
+button opens.
+
+Hyprland tiles new windows. To float and center the popped-out window, add to
+`~/.config/hypr/hyprland.lua`:
+
+```lua
+o.window({ class = "^org\\.quickshell$", title = "^Omatune$" }, { tag = "+omatune-window" })
+o.window({ tag = "omatune-window" }, { float = true })
+o.window({ tag = "omatune-window" }, { center = true })
+o.window({ tag = "omatune-window" }, { size = { 520, 600 } })
+```
 
 ### What happens when you listen
 
@@ -96,25 +118,43 @@ is saved in `~/.local/state/omarchy-omatune/settings.json`.
 
 <table>
 <tr>
-<td><img src="screenshots/settings.png" alt="Settings"></td>
+<td><img src="screenshots/settings.png" alt="Settings: Colors"></td>
+<td><img src="screenshots/settings-window.png" alt="Settings: Window"></td>
 <td><img src="screenshots/about.png" alt="About"></td>
 </tr>
 </table>
 
-| Group | Setting | Default | |
+The settings sit in tabs, with a search box above them that looks through every tab.
+Each row has a **↺** to put it back, and **Reset all** in the header puts back everything.
+
+| Tab | Setting | Default | |
 | --- | --- | --- | --- |
-| Look | Theme | Follow Omarchy | Follow Omarchy (live), Custom or Monochrome |
-| | Custom colours | | background, text and accent, a swatch or a hex code, used exactly as you pick them |
-| | Bar icon | ♪ | up to 8 characters |
-| | Show last song on the bar | on | |
+| Colors | Colors | Follow theme | Follow theme, Window borders, Custom or Monochrome |
+| | Custom colors | | background, text and accent, a swatch or a hex code, used exactly as you pick them |
+| | Text | Always readable | or Theme, or My text color |
+| Appearance | Card style | Soft | Soft, Outline or Flat |
+| | Spacing | Comfortable | Compact, Comfortable or Spacious |
+| | Roundness | 4 | 0 (square) to 20 |
+| | Text size | 1 | 0.8 to 1.5 |
+| | Show the cover | on | the last song's cover in the Listen tab |
+| Window | Window width, height | 520 × 600 | 400 to 1200, 420 to 1100 |
+| | Open as | Bar panel | or Own window |
+| | Window outline | off | the edge in your window border's colors, as a gradient or one color |
+| | Window tint | 0 | 0 to 30, the accent washed over the background |
+| | Window opacity | 97 | 50 to 100 |
 | Listening | Listen to | This computer | or Microphone |
 | | Listen length | 5 s | 4 to 20 seconds |
-| Notifications | Notify when a song is found | on | |
-| | Cover photo in notification | on | |
-| | Notification time | 8 s | 2 to 30 seconds |
-| History | Songs to keep | 20 | 5 to 100 |
+| | Notify when a song is found | on | with the cover, for 8 s (2 to 30) |
+| | Songs to keep | 20 | 5 to 100 |
+| Bar | Bar button shows | Both | Icon, Last song or Both |
+| | Bar icon | ♪ | up to 8 characters |
+| | Middle click | History | or Listen now, or Nothing |
 
-**About** has the logo, the version and a link to more plugins.
+**Window borders** and the outline read the active border from your theme's
+`hyprland.lua` (or `hyprland.conf`), and only take `#rrggbb` colors and an angle from it.
+Settings saved by Omatune 1.1 keep working.
+
+**About**, the last tab, has the logo, the version and a link to more plugins.
 
 ## Troubleshooting
 
@@ -133,7 +173,7 @@ is saved in `~/.local/state/omarchy-omatune/settings.json`.
   `~/.cache/omatune/covers` and are cleared at every start.
 - **Files.** The history is in `~/.local/state/omatune/history.json` and the favourites
   in `favourites.json` next to it. Both are checked when they are read back.
-- **Text fields.** The bar icon and hex fields never read the clipboard by themselves.
+- **Text fields.** The search, bar icon and hex fields never read the clipboard by themselves.
   **Ctrl+V** (or **Shift+Insert**) pastes once through `wl-paste`, the first line only,
   at most 1 KB.
 
@@ -148,12 +188,15 @@ What changed in each version is in the [changelog](CHANGELOG.md).
 
 ```
 qml/
-├── BarWidget.qml     the bar button, recording and identifying, notifications, history
-├── core/             SettingsStore (settings, applied at once and saved locally),
-│                     ArtCache (covers, made safe), Run (a helper with limits), Foreground
-├── panel/            Panel (Listen, History, Settings), AboutPage
-├── controls/         FieldBox (a text field with a bounded paste), FlatButton
-└── js/               Model.js (pure logic), Settings.js (every setting), Art.js (cover limits)
+├── BarWidget.qml     the bar button, recording and identifying, notifications, history,
+│                     docking and popping out, the theme's border, the capped paste
+├── core/             UiState (colors, spacing, the open tab), SettingsStore (saved
+│                     locally, applied at once), ArtCache (covers, made safe), Run
+├── panel/            Panel (docked), PopoutWindow, TuneView (the window), ListenPage,
+│                     HistoryPage, SettingsView + SettingRow + TileArt, AboutPage
+├── controls/         Btn, Chip, Sw, Txt, PasteInput (a text field with a bounded paste)
+└── js/               Schema.js (every setting), Model.js (pure logic), Theme.js
+                      (border colors), Art.js (cover limits)
 assets/               the logo, light and dark
 tools/gen-manifest.js node tools/gen-manifest.js
 tests/test_model.js   node tests/test_model.js
