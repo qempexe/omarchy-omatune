@@ -155,16 +155,28 @@ function clean(key, v) {
 }
 
 // Settings saved by Omatune 1.1 and before had other names; they are still read.
+// The old colors only count while the file has none of the new color settings, so a
+// color left over from 1.1 never mixes with colors picked since.
 const OLD_NAMES = { customBackground: "customBg", customText: "customFg", customAccent: "accentColor" };
 const OLD_THEMES = { follow: "theme", custom: "custom", mono: "monochrome" };
+const COLOR_KEYS = ["colorMode", "customBg", "customFg", "accentColor"];
 function migrate(saved) {
     const src = saved && typeof saved === "object" ? saved : {};
     const out = {};
     for (const k of settingKeys) if (src[k] !== undefined) out[k] = src[k];
-    for (const old in OLD_NAMES) if (out[OLD_NAMES[old]] === undefined && src[old] !== undefined) out[OLD_NAMES[old]] = src[old];
-    if (out.colorMode === undefined && OLD_THEMES[src.theme] !== undefined) out.colorMode = OLD_THEMES[src.theme];
+    if (!COLOR_KEYS.some((k) => src[k] !== undefined)) {
+        for (const old in OLD_NAMES) if (src[old] !== undefined) out[OLD_NAMES[old]] = src[old];
+        if (OLD_THEMES[src.theme] !== undefined) out.colorMode = OLD_THEMES[src.theme];
+    }
     if (out.barDisplay === undefined && src.barShowResult === false) out.barDisplay = "icon";
     return out;
+}
+
+// Black or white text for a background, whichever reads better.
+function readableOn(bg) {
+    const n = parseInt(bg.slice(1), 16);
+    const lum = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+    return lum > 0.5 ? "#141414" : "#e0e0e0";
 }
 
 // every setting, clean. `saved` (the settings file) wins over `shell` (what the
@@ -173,6 +185,9 @@ function resolve(saved, shell) {
     const a = migrate(saved), b = migrate(shell);
     const out = {};
     for (const k of settingKeys) out[k] = clean(k, a[k] !== undefined ? a[k] : b[k]);
+    // A custom text color that was never picked follows the custom background, so a
+    // light background gets dark text. A picked one is used exactly as it is.
+    if (a.customFg === undefined && b.customFg === undefined) out.customFg = readableOn(out.customBg);
     return out;
 }
 

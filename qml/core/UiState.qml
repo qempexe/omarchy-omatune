@@ -114,7 +114,8 @@ Item {
 
     readonly property real accLum: 0.299 * accent.r + 0.587 * accent.g + 0.114 * accent.b
     // text on an accent fill: black or white, or in Custom your own text color
-    readonly property color accentText: custom ? fg : contrast(accent)
+    // when it reads on the accent (a dark accent with dark text gets white instead)
+    readonly property color accentText: custom ? readable(fg, accent) : contrast(accent)
     // Status colours: the pastels used on dark bars vanish on light ones, so pick
     // darker variants for light surfaces. Monochrome removes hues altogether.
     readonly property color good: mono ? fg
@@ -148,7 +149,7 @@ Item {
         return Qt.rgba(surface.r * 0.78 + c.r * 0.22, surface.g * 0.78 + c.g * 0.22,
                        surface.b * 0.78 + c.b * 0.22, 1)
     }
-    function onText(c) { return custom ? fg : contrast(onFill(c)) }
+    function onText(c) { return custom ? readable(fg, onFill(c)) : contrast(onFill(c)) }
     function accentTint(a) { return Qt.rgba(accent.r, accent.g, accent.b, a) }
     // Type is drawn: 11 titles, 10 body, 8 to 9 hints.
     readonly property real baseScale: 0.82

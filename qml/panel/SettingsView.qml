@@ -38,7 +38,9 @@ Item {
         if (item.kind !== "palette") return String(val(item.key)) === String(item.fallback)
         for (let i = 0; i < item.targets.length; i++) {
             const k = item.targets[i].key
-            if (String(val(k)).toLowerCase() !== String(item.fallback[k]).toLowerCase()) return false
+            // an unpicked text color follows the background (see Schema.resolve)
+            const want = k === "customFg" ? Schema.readableOn(String(val("customBg"))) : item.fallback[k]
+            if (String(val(k)).toLowerCase() !== String(want).toLowerCase()) return false
         }
         return true
     }
@@ -47,8 +49,11 @@ Item {
         if (!ui.store) return
         if (item.kind !== "palette") { ui.store.set(item.key, v); return }
         if (v && v.reset) {
-            for (let i = 0; i < item.targets.length; i++)
-                ui.store.set(item.targets[i].key, item.fallback[item.targets[i].key])
+            for (let i = 0; i < item.targets.length; i++) {
+                const k = item.targets[i].key
+                // the text color is cleared, so it follows the background again
+                ui.store.set(k, k === "customFg" ? null : item.fallback[k])
+            }
         } else if (v && v.key) {
             ui.store.set(v.key, v.value)
         }
@@ -112,7 +117,10 @@ Item {
     function resetAll() {
         if (!root.confirmReset) { root.confirmReset = true; confirmTimer.restart(); return }
         root.confirmReset = false
-        if (ui.store) ui.store.resetAll(Schema.defaults)
+        if (!ui.store) return
+        const d = {}
+        for (const k in Schema.defaults) if (k !== "customFg") d[k] = Schema.defaults[k]
+        ui.store.resetAll(d)
     }
     Timer { id: confirmTimer; interval: 2500; onTriggered: root.confirmReset = false }
 

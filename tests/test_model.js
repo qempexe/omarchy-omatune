@@ -7,7 +7,7 @@ const load = (file, names) => new Function(fs.readFileSync(path.join(root, "qml"
 
 const M = load("Model.js", ["str", "safeUrl", "plain", "parseRecognition", "statusText", "historyPush", "songKey",
     "isFavourite", "toggleFavourite", "cleanSongs"]);
-const S = load("Schema.js", ["groups", "settingKeys", "defaults", "resolve", "clean", "isHex"]);
+const S = load("Schema.js", ["groups", "settingKeys", "defaults", "resolve", "clean", "isHex", "readableOn"]);
 const T = load("Theme.js", ["parseBorder", "parsePalette"]);
 const A = load("Art.js", ["isCover", "nameOf", "isName", "curlArgs", "thumbArgs", "MAX_BYTES"]);
 
@@ -74,6 +74,15 @@ t("settings are clamped to what the schema allows", () => {
     assert.strictEqual(c.windowWidth, 1200);
     assert.deepStrictEqual(Object.keys(c).sort(), S.settingKeys.slice().sort());
     assert.deepStrictEqual(S.resolve({}, {}), S.defaults);
+});
+
+t("a custom text color that was never picked reads on the background", () => {
+    assert.strictEqual(S.resolve({ colorMode: "custom", customBg: "#f8f8f2" }, {}).customFg, "#141414");
+    assert.strictEqual(S.resolve({ colorMode: "custom", customBg: "#1f1714" }, {}).customFg, "#e0e0e0");
+    assert.strictEqual(S.resolve({ colorMode: "custom", customBg: "#f8f8f2", customFg: "#ffffff" }, {}).customFg, "#ffffff");
+    // a 1.1 text color is not mixed with colors picked since
+    const c = S.resolve({ theme: "follow", customText: "#ffffff", colorMode: "custom", customBg: "#f8f8f2" }, { theme: "follow" });
+    assert.deepStrictEqual([c.colorMode, c.customBg, c.customFg], ["custom", "#f8f8f2", "#141414"]);
 });
 
 t("the settings file wins over the bar's settings", () => {
