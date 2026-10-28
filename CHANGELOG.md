@@ -4,6 +4,17 @@ All notable changes to Omatune. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-10-28
+
+### Security
+
+- The clip is recorded into a folder only you can open (`~/.cache/omatune/capture`,
+  0700), as a file only you can read (0600), so another account on the computer can't
+  open it while it is recorded or identified. Omatune won't record if that folder is a
+  link or isn't yours.
+- The history, favourites and settings folders are made private (0700) at every start,
+  and a clip left behind by a crash, or by 1.1 and before, is removed.
+
 ## [1.2.0] - 2026-10-28
 
 ### Added
@@ -80,6 +91,7 @@ All notable changes to Omatune. The format follows
 - First release: song recognition in the bar. Click to listen, then see the song,
   artist and cover in a notification and in the history.
 
+[1.2.1]: https://github.com/qempexe/omarchy-omatune/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/qempexe/omarchy-omatune/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/qempexe/omarchy-omatune/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/qempexe/omarchy-omatune/compare/v1.0.0...v1.0.1

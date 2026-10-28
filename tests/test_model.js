@@ -146,7 +146,7 @@ t("covers are fetched over https only, with limits, and shrunk in a capped proce
 t("manifest matches Schema.js", () => {
     const m = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
     assert.strictEqual(m.id, "io.github.qempexe.omatune");
-    assert.strictEqual(m.version, "1.2.0");
+    assert.strictEqual(m.version, "1.2.1");
     assert.ok(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8").includes("## [" + m.version + "] - "), "the version has a changelog entry");
     assert.deepStrictEqual(m.barWidget.schema.map((e) => e.key), S.settingKeys);
     assert.deepStrictEqual(m.barWidget.defaults, S.defaults);
